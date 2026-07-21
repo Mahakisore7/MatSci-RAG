@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/*.jsonl
+data/matscholar_processed/
+models/
+*.index
+.pytest_cache/
+.ruff_cache/
+
+# Added standard Python ignores
+.coverage
+.coverage.*
+htmlcov/
+.nox/
+.tox/
+build/
+dist/
+*.egg-info/
+*.egg
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
