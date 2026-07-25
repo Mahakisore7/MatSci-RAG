@@ -3,21 +3,21 @@ name = "matsci-rag"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "==3.13.*"
 dependencies = [
-    "accelerate>=1.14.0",
-    "arxiv>=4.0.0",
-    "datasets>=5.0.0",
-    "faiss-cpu>=1.14.3",
-    "matplotlib>=3.11.1",
-    "pandas>=3.0.3",
-    "python-dotenv>=1.2.2",
-    "scikit-learn>=1.9.0",
-    "sentence-transformers>=5.6.0",
-    "seqeval>=1.2.2",
-    "streamlit>=1.60.0",
-    "torch>=2.13.0",
-    "transformers>=5.14.1",
+    "accelerate",
+    "arxiv",
+    "datasets",
+    "faiss-cpu",
+    "matplotlib",
+    "pandas",
+    "python-dotenv",
+    "scikit-learn",
+    "sentence-transformers",
+    "seqeval",
+    "streamlit",
+    "torch",
+    "transformers",
 ]
 
 [dependency-groups]
@@ -26,3 +26,20 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.15.22",
 ]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cuda" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
