@@ -22,7 +22,7 @@ By the end of this phase you will have:
 
 ## 2. Phase Data Flow
 
-![Phase 1 flow](diagrams/phase1_flow.png)
+![Phase 1 flow](phase1_flow.png)
 
 A straight line, deliberately: topic query → arXiv's public API → your script → one output file → a check only you can do (reading it). Nothing in Phases 2 onward can compensate for a corpus that's off-topic at this stage — this is why the last box in the diagram is a manual step, not another script.
 
