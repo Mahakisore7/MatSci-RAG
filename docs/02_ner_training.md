@@ -25,7 +25,7 @@ By the end of this phase you will have:
 
 ## 2. Phase Architecture: The Controlled Comparison
 
-![Phase 2 flow](diagrams/phase2_flow.png)
+![Phase 2 flow](phase2_flow.png)
 
 Look closely at the shape of this diagram: **one dataset, splitting into two identical training procedures**, differing only in which pretrained model each starts from. That symmetry is the entire point — it's what lets you say "the difference in F1 is caused by domain-specific pretraining" rather than "the difference in F1 is caused by *something*, possibly pretraining, possibly a dozen other confounds." Keep both branches identical (same hyperparameters, same data, same epochs) or the comparison stops being meaningful.
 

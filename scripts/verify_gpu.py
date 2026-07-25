@@ -1,4 +1,3 @@
-# verify_gpu.py
 import torch
 
 # pyrefly: ignore [missing-import]
