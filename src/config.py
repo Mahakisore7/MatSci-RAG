@@ -4,4 +4,4 @@ import os
 
 load_dotenv()
 
-HF_TOKEN = os.getenv("HF_TOKEN")  # None if not set -- fine, current models are all public
+HF_TOKEN = os.getenv("HF_TOKEN")
