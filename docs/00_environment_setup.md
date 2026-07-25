@@ -29,7 +29,7 @@ Your screenshot shows you've already run `uv init` and have: `main.py`, `pyproje
 
 ## 2. The Workflow This Phase Sets Up
 
-![Tool workflow](diagrams/tool_workflow.png)
+![Tool workflow](tool_workflow.png)
 
 Three loops running at three different speeds — and this phase is what wires all three up:
 - **Inner loop** (every few minutes): you edit code, run it with `uv run`, repeat.
