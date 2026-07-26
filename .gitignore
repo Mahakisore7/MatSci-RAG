@@ -4,6 +4,8 @@ __pycache__/
 .env
 data/*.jsonl
 data/matscholar_processed/
+data/ner_processed/
+data/sofc_exp_repo/
 models/
 *.index
 .pytest_cache/
