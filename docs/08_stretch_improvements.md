@@ -20,7 +20,7 @@ By the end of this phase (to whatever extent you choose to pursue it) you will h
 
 ## 2. Where Each Upgrade Slots Into What You Already Built
 
-![Phase 8 flow](diagrams/phase8_flow.png)
+![Phase 8 flow](phase8_flow.png)
 
 The blue/navy boxes are everything you already built in Phases 4-7 — completely unchanged. The copper/red boxes are the three optional additions below, shown exactly where each one would slot into that existing flow. Notice none of them replace anything — they're genuinely additive, which is why you can pick any subset (including none) without breaking what already works.
 

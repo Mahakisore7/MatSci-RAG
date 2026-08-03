@@ -21,7 +21,7 @@ By the end of this phase you will have:
 
 ## 2. Phase Data Flow
 
-![Phase 3 flow](diagrams/phase3_flow.png)
+![Phase 3 flow](phase3_flow.png)
 
 Two independent phases' outputs — your corpus (Phase 1) and your trained model (Phase 2) — combine for the first time here. Everything to the left of this phase was preparation; this is the first moment the project produces a genuinely new kind of artifact (structured data, not just text or a trained model file).
 

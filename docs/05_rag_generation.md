@@ -21,7 +21,7 @@ By the end of this phase you will have:
 
 ## 2. Phase Data Flow
 
-![Phase 5 flow](diagrams/phase5_flow.png)
+![Phase 5 flow](phase5_flow.png)
 
 Notice where `passages` branches into two arrows: one into the prompt (so the LLM can use the content), and one out as `sources` (so a human can verify it later, in Phase 7's UI). This is the entire mechanism that makes an answer *trustworthy* rather than merely *plausible* — the same object serves both roles, so there's no way for the displayed source to be disconnected from what the model actually saw.
 

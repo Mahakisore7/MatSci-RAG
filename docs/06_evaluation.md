@@ -23,7 +23,7 @@ By the end of this phase you will have:
 
 ## 2. Phase Data Flow
 
-![Phase 6 flow](diagrams/phase6_flow.png)
+![Phase 6 flow](phase6_flow.png)
 
 Notice the loop only has two possible outcomes per question — HIT or MISS — and both flow into the same final rate calculation. There's no partial credit here by design: either the source you know is correct showed up in the top-k results, or it didn't. This binary simplicity is a feature, not a limitation — it's what makes the resulting percentage honest and easy to defend, rather than a fuzzy score that's hard to explain to someone else.
 

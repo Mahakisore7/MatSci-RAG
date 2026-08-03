@@ -21,7 +21,7 @@ By the end of this phase you will have:
 
 ## 2. Phase Data Flow
 
-![Phase 4 flow](diagrams/phase4_flow.png)
+![Phase 4 flow](phase4_flow.png)
 
 Every passage goes through the identical transformation (embed → normalize) so that "similarity" becomes one well-defined mathematical operation FAISS can search over. The sanity check at the very bottom of this diagram is not optional decoration — it's the cheapest possible point to catch a broken embedding step, before it silently produces bad retrieval in every single Phase 5 answer.
 

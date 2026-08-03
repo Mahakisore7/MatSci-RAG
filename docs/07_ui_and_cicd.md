@@ -21,7 +21,7 @@ By the end of this phase you will have:
 
 ## 2. What the User Actually Experiences
 
-![User flow](diagrams/phase7_user_flow.png)
+![User flow](phase7_user_flow.png)
 
 This diagram is the entire point of Phases 1-6 from someone else's perspective. Everything before this phase was building the engine; this is the dashboard. Pay attention to the "verify" step in particular — it's not a nice-to-have UI detail, it's the direct, visible expression of why this project is a *RAG* system and not just a chatbot: the user isn't asked to trust the answer, they're handed the means to check it themselves.
 
