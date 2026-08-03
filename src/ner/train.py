@@ -1,4 +1,3 @@
-# src/train_ner.py
 import numpy as np
 from datasets import load_from_disk
 from seqeval.metrics import f1_score, precision_score, recall_score
@@ -11,7 +10,7 @@ from transformers import (
 )
 
 # pyrefly: ignore [missing-import]
-from logging_config import get_logger
+from src.core.logging_config import get_logger
 
 log = get_logger(__name__)
 

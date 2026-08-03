@@ -3,7 +3,8 @@ import os
 
 import arxiv
 
-from logging_config import get_logger
+# pyrefly: ignore [missing-import]
+from src.core.logging_config import get_logger
 
 log = get_logger(__name__)
 

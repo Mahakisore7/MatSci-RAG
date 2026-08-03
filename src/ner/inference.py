@@ -6,7 +6,7 @@ import json
 from transformers import AutoTokenizer, pipeline
 
 # pyrefly: ignore [missing-import]
-from logging_config import get_logger
+from src.core.logging_config import get_logger
 
 log = get_logger(__name__)
 
