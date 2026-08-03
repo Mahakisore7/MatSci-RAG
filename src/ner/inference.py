@@ -67,4 +67,4 @@ def run_inference(corpus_path: str, model_dir: str, output_path: str) -> int:
 
 
 if __name__ == "__main__":
-    run_inference("data/corpus.jsonl", "models/matscibert_ner", "data/structured_facts.jsonl")
+    run_inference("data/sofc_corpus.jsonl", "models/matscibert_ner", "data/structured_facts.jsonl")
