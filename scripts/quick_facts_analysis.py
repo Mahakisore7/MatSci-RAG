@@ -28,4 +28,7 @@ for exp, count in experiments.most_common(10):
 
 print("\nTop 10 most-mentioned VALUES:")
 for val, count in values.most_common(10):
-    print(f"  {val}: {count}")
+    try:
+        print(f"  {val}: {count}")
+    except UnicodeEncodeError:
+        print(f"  [unicode error]: {count}")
