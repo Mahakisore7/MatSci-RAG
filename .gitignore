@@ -6,6 +6,8 @@ data/*.jsonl
 data/matscholar_processed/
 data/ner_processed/
 data/sofc_exp_repo/
+data/structured_facts.jsonl
+data/sofc_corpus.jsonl
 models/
 *.index
 .pytest_cache/
