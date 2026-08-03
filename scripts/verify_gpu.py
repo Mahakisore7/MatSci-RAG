@@ -1,7 +1,7 @@
 import torch
 
 # pyrefly: ignore [missing-import]
-from src.logging_config import get_logger
+from src.core.logging_config import get_logger
 
 log = get_logger(__name__)
 log.info(f"CUDA available: {torch.cuda.is_available()}")
