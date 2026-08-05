@@ -70,9 +70,9 @@ def compute_metrics(eval_pred):
 
 
 def fine_tune(
-    model_name: str, dataset, output_dir: str, batch_size: int = 2, grad_accum: int = 4
+    model_name: str, dataset, output_dir: str, batch_size: int = 2, grad_accum: int = 8
 ) -> dict:
-    # batch_size=8, not 16 -- deliberately chosen to comfortably fit a 6GB laptop GPU.
+    # batch_size=2, grad_accum=8 -- effective batch size 16 to comfortably fit a 6GB laptop GPU.
     log.info(f"Fine-tuning {model_name} -> {output_dir}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForTokenClassification.from_pretrained(
@@ -93,8 +93,8 @@ def fine_tune(
         learning_rate=2e-5,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=grad_accum,  # effective batch = 2*4 = 8
-        num_train_epochs=10,
+        gradient_accumulation_steps=grad_accum,
+        num_train_epochs=40,  # Increased from 10 to 40 for better accuracy
         load_best_model_at_end=False,  # requires save_strategy != "no"
         fp16=True,
         report_to="none",
