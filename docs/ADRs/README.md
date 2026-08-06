@@ -23,6 +23,7 @@ Each ADR follows this standard structure:
 | [ADR-001](ADR-001-use-sofc-exp-dataset.md) | Use SOFC-Exp Dataset for NER Training | Accepted |
 | [ADR-002](ADR-002-matscibert-vs-bert-baseline.md) | MatSciBERT vs BERT-base as Fine-Tuning Backbone | Accepted |
 | [ADR-003](ADR-003-sofc-corpus-for-inference.md) | Fetch SOFC-Specific arXiv Corpus for Inference | Accepted |
+| [ADR-004](ADR-004-fix-character-offset-bug.md) | Fix Windows `\r\n` Character-Offset Bug in Parser | Accepted |
 
 ## Naming Convention
 

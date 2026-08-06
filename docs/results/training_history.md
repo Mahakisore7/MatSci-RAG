@@ -15,19 +15,38 @@ This document tracks the different hyperparameter configurations we used to fine
 **Results:**
 - **MatSciBERT Test F1:** 0.0359
 - **Generic BERT Test F1:** 0.0346
-- *Note:* Absolute accuracy was extremely low. When inference was run, the model primarily extracted meaningless characters (`_`, `,`, `the`) because it had not trained long enough to confidently recognize full entity structures.
+- *Note:* ⚠️ Results are **invalid** — a character-offset parsing bug (see ADR-004) caused the model to train on corrupted, misaligned tokens. Kept for historical transparency.
 
 ---
 
-## Run 2: Increased Epochs for Accuracy (Phase 3)
+## Run 2: Increased Epochs (Phase 3)
 **Date:** 2026-08-05
 **Goal:** Improve absolute accuracy so the structured facts table extracts real materials instead of garbage characters.
 **Changes/Configuration:**
-- `num_train_epochs`: Increased to **40** (giving the model 4x more time to learn).
-- `gradient_accumulation_steps`: Increased to **8** (Effective batch size = 16) to stabilize learning gradients.
-- `per_device_train_batch_size`: 2 (Kept identical to fit in 6GB VRAM).
+- `num_train_epochs`: Increased to **40**
+- `gradient_accumulation_steps`: Increased to **8** (Effective batch size = 16)
+- `per_device_train_batch_size`: 2
 
 **Results:**
 - **MatSciBERT Test F1:** 0.0851
 - **Generic BERT Test F1:** 0.1029
-- *Note:* F1 scores nearly tripled (almost a 300% improvement). The model is now significantly better at identifying entity spans. 
+- *Note:* ⚠️ Results are **invalid** — the same character-offset parsing bug (ADR-004) was still present. Kept for historical transparency.
+
+---
+
+## Run 3: Bugfix + Improved Hyperparameters (Phase 3)
+**Date:** 2026-08-06
+**Goal:** Fix the critical character-offset bug (ADR-004) and add industry-standard training improvements to get the first valid accuracy numbers.
+**Changes/Configuration:**
+- **BUGFIX:** `open(txt_path, newline='')` in `prepare_data.py` — preserves `\r\n` so character offsets match the source CSV annotations.
+- `num_train_epochs`: Increased to **60**
+- `warmup_ratio`: **0.1** — ramps up learning rate gradually for first 10% of steps
+- `weight_decay`: **0.01** — L2 regularization to prevent overfitting
+- `save_strategy`: Changed from `"no"` → `"epoch"` — saves a checkpoint every epoch
+- `load_best_model_at_end`: Changed from `False` → **`True`** — saves the best F1 checkpoint
+- `metric_for_best_model`: **`eval_f1`**
+
+**Results:**
+- **MatSciBERT Test F1:** *(Running — to be filled in)*
+- **Generic BERT Test F1:** *(Running — to be filled in)*
+- *Note:* This is the first training run on correctly parsed data. Results here are the first **valid** accuracy numbers for this project.

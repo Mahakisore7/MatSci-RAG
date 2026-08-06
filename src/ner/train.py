@@ -89,13 +89,17 @@ def fine_tune(
     args = TrainingArguments(
         output_dir=output_dir,
         eval_strategy="epoch",
-        save_strategy="no",  # only save once manually at the end
+        save_strategy="epoch",  # save a checkpoint every epoch
         learning_rate=2e-5,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=grad_accum,
-        num_train_epochs=40,  # Increased from 10 to 40 for better accuracy
-        load_best_model_at_end=False,  # requires save_strategy != "no"
+        num_train_epochs=60,  # Run 3, increased from 40
+        warmup_ratio=0.1,  # Warm up LR for first 10% of steps
+        weight_decay=0.01,  # L2 regularization to prevent overfitting
+        load_best_model_at_end=True,  # Save the best checkpoint, not just the last
+        metric_for_best_model="eval_f1",
+        greater_is_better=True,
         fp16=True,
         report_to="none",
     )

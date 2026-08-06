@@ -36,7 +36,7 @@ def load_sofc_exp(csv_dir: str, text_dir: str) -> list[dict]:
         csv_path = os.path.join(csv_dir, filename)
         txt_path = os.path.join(text_dir, filename.replace(".csv", ".txt"))
 
-        with open(txt_path, encoding="utf-8") as f:
+        with open(txt_path, encoding="utf-8", newline="") as f:
             full_text = f.read()
 
         sentences = {}  # sentence_id -> {"tokens": [], "tags": []}
