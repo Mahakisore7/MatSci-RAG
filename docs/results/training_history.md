@@ -47,6 +47,6 @@ This document tracks the different hyperparameter configurations we used to fine
 - `metric_for_best_model`: **`eval_f1`**
 
 **Results:**
-- **MatSciBERT Test F1:** *(Running — to be filled in)*
-- **Generic BERT Test F1:** *(Running — to be filled in)*
-- *Note:* This is the first training run on correctly parsed data. Results here are the first **valid** accuracy numbers for this project.
+- **MatSciBERT Test F1:** 0.0915 *(Training Time: ~20 mins)*
+- **Generic BERT Test F1:** 0.0816 *(Training Time: ~16 mins)*
+- *Note:* This is the first training run on correctly parsed data. Results here are the first **valid** accuracy numbers for this project. MatSciBERT successfully outperformed the generic BERT baseline, proving our central hypothesis!

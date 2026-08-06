@@ -13,10 +13,10 @@
 
 ### Results
 
-| Model | Test F1 | Test Precision | Test Recall |
-|---|---|---|---|
-| **m3rg-iitd/matscibert** | **0.0359** | — | — |
-| bert-base-uncased | 0.0346 | — | — |
+| Model | Test F1 | Test Precision | Test Recall | Training Time (60 Epochs) |
+|---|---|---|---|---|
+| **m3rg-iitd/matscibert** | **0.0915** | — | — | ~20 minutes |
+| bert-base-uncased | 0.0816 | — | — | ~16 minutes |
 
 **MatSciBERT outperforms generic BERT**, confirming the central hypothesis of this phase.
 
