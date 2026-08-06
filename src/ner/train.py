@@ -100,6 +100,7 @@ def fine_tune(
         load_best_model_at_end=True,  # Save the best checkpoint, not just the last
         metric_for_best_model="eval_f1",
         greater_is_better=True,
+        save_total_limit=1,  # Keep only the best checkpoint — prevents disk fill
         fp16=True,
         report_to="none",
     )
