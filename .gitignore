@@ -10,6 +10,11 @@ data/structured_facts.jsonl
 data/sofc_corpus.jsonl
 models/
 *.index
+
+# Phase 4: Vector database artifacts (generated — do not commit)
+data/chroma_db/
+data/faiss_index/
+data/vector_db/
 .pytest_cache/
 .ruff_cache/
 

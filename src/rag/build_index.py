@@ -13,7 +13,7 @@ This script:
 import json
 import os
 
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -41,12 +41,12 @@ CHUNK_OVERLAP = 50  # overlap between consecutive chunks to preserve context
 
 
 def load_corpus(path: str) -> dict[str, dict]:
-    """Load sofc_corpus.jsonl into a dict keyed by arxiv_id."""
+    """Load sofc_corpus.jsonl into a dict keyed by paper id."""
     corpus = {}
     with open(path, encoding="utf-8") as f:
         for line in f:
             doc = json.loads(line)
-            corpus[doc["arxiv_id"]] = doc
+            corpus[doc["id"]] = doc
     log.info(f"Loaded {len(corpus)} papers from corpus")
     return corpus
 
@@ -68,19 +68,35 @@ def build_documents(corpus: dict, facts: dict) -> list[Document]:
     The NER tags are stored in metadata for later hybrid filtering.
     """
     docs = []
-    for arxiv_id, paper in corpus.items():
-        fact = facts.get(arxiv_id, {})
+    for paper_id, paper in corpus.items():
+        # Facts are keyed by source_id which matches the full URL paper id
+        fact = facts.get(paper_id, {})
 
-        # Build the text content — prefix with BGE passage instruction
-        text = BGE_PASSAGE_PREFIX + paper.get("abstract", "")
+        # Store clean text only — BGE prefix is only used at embedding time
+        text = paper.get("abstract", "")
 
-        # Build metadata payload — all values must be strings or lists for ChromaDB
+        # Deduplicate and filter out noisy NER tokens (punctuation, subwords)
+        def clean_entities(entity_list: list) -> list:
+            seen = set()
+            result = []
+            for e in entity_list:
+                e = e.strip()
+                if len(e) > 2 and not e.startswith("##") and e not in seen:
+                    seen.add(e)
+                    result.append(e)
+            return result
+
+        materials = clean_entities(fact.get("materials", []))
+        devices = clean_entities(fact.get("devices", []))
+        experiments = clean_entities(fact.get("experiments", []))
+
+        # Build metadata payload — all values must be strings for ChromaDB
         metadata = {
-            "arxiv_id": arxiv_id,
+            "paper_id": paper_id,
             "title": paper.get("title", ""),
-            "materials": ", ".join(fact.get("materials", [])),
-            "devices": ", ".join(fact.get("devices", [])),
-            "experiments": ", ".join(fact.get("experiments", [])),
+            "materials": ", ".join(materials),
+            "devices": ", ".join(devices),
+            "experiments": ", ".join(experiments),
         }
 
         docs.append(Document(page_content=text, metadata=metadata))
@@ -106,9 +122,10 @@ def build_index(chunks: list[Document]) -> Chroma:
     log.info(f"Loading embedding model: {EMBED_MODEL_NAME}")
 
     # encode_kwargs normalize_embeddings=True is required for BGE
+    # model_kwargs prompt_name="s2p_query" applies the correct BGE prefix at embedding time
     embeddings = HuggingFaceEmbeddings(
         model_name=EMBED_MODEL_NAME,
-        encode_kwargs={"normalize_embeddings": True},
+        encode_kwargs={"normalize_embeddings": True, "prompt": BGE_PASSAGE_PREFIX},
     )
 
     log.info(f"Building ChromaDB collection '{COLLECTION_NAME}' at {CHROMA_DIR} ...")
