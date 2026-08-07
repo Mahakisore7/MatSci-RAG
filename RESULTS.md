@@ -20,6 +20,32 @@
 
 **MatSciBERT outperforms generic BERT**, confirming the central hypothesis of this phase.
 
+---
+
+## Phase 4: RAG Indexing
+
+### Stack Used
+| Component | Choice | Rationale |
+|---|---|---|
+| Embedding Model | BAAI/bge-small-en-v1.5 | Top-ranked open-source model on MTEB leaderboard |
+| Vector Database | ChromaDB | Purpose-built vector DB with metadata filtering support |
+| Framework | LangChain | Industry-standard RAG framework |
+| Chunking | RecursiveCharacterTextSplitter | 500 chars, 50 char overlap |
+
+### Index Statistics
+- **Papers indexed:** 400
+- **Total chunks:** 1,330
+- **Vectors stored:** 1,330
+- **Build time:** ~10 seconds (model already cached)
+- **Index location:** `data/chroma_db/`
+
+### Retrieval Test Results (3 test queries, k=3)
+| Query | Quality | Notes |
+|---|---|---|
+| What materials are used as electrolytes in SOFCs? | ✅ Excellent | All 3 results are correct SOFC electrolyte papers |
+| What is the effect of temperature on SOFC performance? | ✅ Good | Returns relevant micro-SOFC and performance papers |
+| Which cathode materials show high oxygen reduction activity? | ⚠️ Mixed | Returns some battery cathode papers due to domain overlap. Fix: include "SOFC" in query context in Phase 5 |
+
 ### Interpretation
 
 The absolute F1 values are low for two compounding reasons:
