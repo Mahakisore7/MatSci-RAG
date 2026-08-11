@@ -25,6 +25,7 @@ Each ADR follows this standard structure:
 | [ADR-003](ADR-003-sofc-corpus-for-inference.md) | Fetch SOFC-Specific arXiv Corpus for Inference | Accepted |
 | [ADR-004](ADR-004-fix-character-offset-bug.md) | Fix Windows `\r\n` Character-Offset Bug in Parser | Accepted |
 | [ADR-005](ADR-005-advanced-rag-stack.md) | Advanced RAG Stack — ChromaDB + BGE over FAISS + MiniLM | Accepted |
+| [ADR-006](ADR-006-raw-model-generate-over-langchain-pipeline.md) | Use Raw `model.generate()` over LangChain Pipeline for Generation | Accepted |
 
 ## Naming Convention
 
