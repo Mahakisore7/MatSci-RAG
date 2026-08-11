@@ -58,3 +58,41 @@ Despite these constraints, the direction of the result — **MatSciBERT > BERT**
 - `batch_size=2`, `gradient_accumulation_steps=4` (effective batch = 8)
 - `learning_rate=2e-5`, `num_epochs=10`, `fp16=True`
 - Hardware: NVIDIA RTX 4050 6GB VRAM
+
+---
+
+## Phase 5: RAG Generation
+
+### Stack Used
+| Component | Choice | Rationale |
+|---|---|---|
+| Generator Model | google/flan-t5-base | Instruction-tuned encoder-decoder; excellent at following grounding prompts |
+| Interface | Raw `model.generate()` (PyTorch) | Avoids LangChain pipeline wrapper brittleness in Transformers v5+ |
+| Retriever | ChromaDB via LangChain | Inherits Phase 4 setup |
+| Prompt Strategy | System prompt with domain scoping + hallucination guardrail | Forces "I don't know" for off-domain questions |
+
+### Generation Test Results (4 queries, k=5)
+
+| Query | Answer | Quality | Notes |
+|---|---|---|---|
+| What materials are used as electrolytes in SOFCs? | "High-entropy perovskites." | ✅ Correct & grounded | All 5 sources are relevant SOFC electrolyte papers |
+| What is the effect of temperature on SOFC performance? | "Electrochemical performance is affected by gas flow pattern, flow rate, and operating voltage" | ✅ Grounded | Correctly derived from airflow/temperature SOFC papers |
+| Which cathode materials show high oxygen reduction activity? | "FePO₄" | ⚠️ Off-domain | Retriever pulled battery cathode papers; LLM answered from wrong context |
+| Who won the Super Bowl last year? | "I don't know." | ✅ Guardrail works | Hallucination mitigation confirmed working |
+
+### Hallucination Mitigation — Confirmed Working
+The critical project requirement is met: the model explicitly refuses to answer questions outside the provided context, replying "I don't know" for the Super Bowl question. This validates the grounding prompt design.
+
+### Known Limitation: Query 3
+The cathode/oxygen-reduction question still retrieves off-domain battery papers because the query phrase "cathode materials" and "oxygen reduction" appear heavily in battery literature. The LLM correctly answers *from the retrieved context* — it's the retriever that is confused, not the generator. Resolution options:
+- **Phase 6 (Evaluation):** Quantify the hit-rate impact.
+- **Phase 8 (Stretch):** Implement hybrid BM25+vector retrieval or query rewriting.
+
+### Implementation Bugs Fixed During Phase 5
+| Bug | Root Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError: langchain.chains` | LangChain v1.3+ moved chains to `langchain_classic` | Updated import |
+| `KeyError: Unknown task text2text-generation` | Transformers v5 removed this task name | Switched to raw `model.generate()` |
+| `AttributeError: RunnableSequence has no combine_docs_chain` | LCEL internal API changed between versions | Dropped LangChain chain entirely; built prompt + call directly |
+| Windows silent `ACCESS_VIOLATION` crash | Import order conflict: `torch` before `sentence-transformers` on Windows DLL | Moved `HuggingFaceEmbeddings` import before `torch` |
+
