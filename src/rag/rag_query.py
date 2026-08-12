@@ -85,6 +85,25 @@ def build_prompt(query: str, retrieved_docs: list) -> str:
     return system_instruction + f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
 
 
+def retrieve(query: str, k: int = 5) -> list:
+    """Helper for pure retrieval testing."""
+    bge_prefixed_query = BGE_QUERY_PREFIX + query
+    # Temporarily override k if needed
+    retriever.search_kwargs["k"] = k
+    docs = retriever.invoke(bge_prefixed_query)
+    # Format the return to match test expectations (dicts with 'text' key)
+    results = []
+    for doc in docs:
+        results.append(
+            {
+                "text": doc.page_content,
+                "title": doc.metadata.get("title", ""),
+                "source_id": doc.metadata.get("paper_id", ""),
+            }
+        )
+    return results
+
+
 def answer_query(query: str) -> tuple[str, list]:
     """
     Given a user query, retrieves relevant SOFC documents and generates an answer.

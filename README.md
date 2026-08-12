@@ -1,4 +1,8 @@
 # MatSci-RAG — Build Guide
+
+## CI Limitations
+> **Note on CI Testing:** This project uses a locally fine-tuned MatSciBERT model for Named Entity Recognition (NER) located in `models/matscibert_ner/`. Because model weights are too large for standard git tracking without Git LFS, they are `.gitignore`d. As a result, the GitHub Actions CI pipeline tests the RAG retrieval logic and application structure, but does *not* test the NER inference locally during CI runs. NER model tests are executed locally only.
+
 ### Domain-Specific LLM Assistant for Materials Science Literature (RAG + NER)
 
 > **Where this file lives:** `docs/build-guide/README.md`

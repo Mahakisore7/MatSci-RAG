@@ -117,3 +117,35 @@ This proves that **when a user asks a highly specific, fact-based question**, th
 ### Answer quality spot-check
 The generated answers from Phase 5 proved that `flan-t5-base` perfectly follows the grounding instructions. When given the correct context (which we now know happens 100% of the time for specific questions), it extracts the precise answer without hallucinating.
 
+---
+
+## Phase 7: Streamlit UI + GitHub Actions CI
+
+### What Was Built
+
+| Component | Description |
+|---|---|
+| `app.py` | Streamlit web UI — full chat interface with expandable source papers |
+| `.streamlit/config.toml` | Disables file watcher to prevent `torchvision` crash on Windows |
+| `tests/test_pipeline.py` | End-to-end smoke test for the retriever (1 passed ✅) |
+| `.github/workflows/ci.yml` | Real GitHub Actions CI — replaces the Phase 0 echo placeholder |
+| `src/rag/rag_query.py` | Added `retrieve()` helper function for pure retrieval testing |
+
+### Live Test Result
+
+> **Query:** *"What is considered a major reason for anode degradation in Ni-yttria stabilized zirconia solid oxide fuel cell anodes?"*
+>
+> **Answer:** `"Ni coarsening"` ✅ (Correct — sourced from `http://arxiv.org/abs/1201.1567v1`)
+>
+> **Hardware:** GPU (CUDA detected, `flan-t5-base` loaded on `cuda`)
+
+### Test Results
+- `uv run pytest tests/ -v` → **10/10 passed** ✅
+
+### Bugs Fixed During Phase 7
+| Bug | Root Cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError: No module named 'torchvision'` | Streamlit file watcher tries to import all Transformers submodules, including vision models that require `torchvision` | Added `.streamlit/config.toml` with `fileWatcherType = "none"` |
+| `ImportError: cannot import name 'retrieve'` | `rag_query.py` only had `answer_query()` — no pure retrieval helper | Added `retrieve(query, k)` function to `rag_query.py` |
+| `ModuleNotFoundError: No module named 'src'` in tests | Test used `sys.path.append("src")` instead of appending the project root | Changed to `sys.path.append(os.path.abspath(...dirname(__file__), ".."))` |
+| Ruff `E501` line too long | Long `st.write(...)` string in `app.py` | Split into two concatenated string literals |
