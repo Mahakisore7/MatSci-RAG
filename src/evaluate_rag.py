@@ -6,6 +6,7 @@ write good test cases -- this is the part that can't be automated."""
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 
+# pyrefly: ignore [missing-import]
 from src.core.logging_config import get_logger
 
 log = get_logger(__name__)
