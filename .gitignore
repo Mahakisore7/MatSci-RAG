@@ -35,3 +35,11 @@ dist/
 
 
 .env
+
+# Phase 7: Streamlit
+# .streamlit/config.toml IS committed (it disables file watcher — needed for all users)
+# secrets are NOT committed
+.streamlit/secrets.toml
+
+# Crash logs (auto-generated, not useful to track)
+crash.log
