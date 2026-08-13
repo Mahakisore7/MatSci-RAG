@@ -149,3 +149,18 @@ The generated answers from Phase 5 proved that `flan-t5-base` perfectly follows 
 | `ImportError: cannot import name 'retrieve'` | `rag_query.py` only had `answer_query()` — no pure retrieval helper | Added `retrieve(query, k)` function to `rag_query.py` |
 | `ModuleNotFoundError: No module named 'src'` in tests | Test used `sys.path.append("src")` instead of appending the project root | Changed to `sys.path.append(os.path.abspath(...dirname(__file__), ".."))` |
 | Ruff `E501` line too long | Long `st.write(...)` string in `app.py` | Split into two concatenated string literals |
+
+---
+
+## Phase 8: Stretch Improvements
+
+### What Was Built
+
+| Improvement | Description | Benefit |
+|---|---|---|
+| **Self-Verification** | `verify_answer` prompts Flan-T5 to double-check its own answer against the context. | Shows ✅/⚠️ badges in UI. Detects hallucinations before trusting the model. |
+| **Uncertainty Abstention** | `detect_ambiguity` counts distinct materials from NER tags in retrieved docs. | Prevents model from guessing randomly when multi-domain papers (e.g., LSCF + LiFePO4) are retrieved. |
+| **Hybrid Retrieval** | `hybrid_retrieve` combines dense vector search with BM25 keyword matching and NER metadata filtering. | Fixes the "cathode" ambiguity by ensuring exact keyword matches (BM25) and restricting search to the SOFC domain using Phase 2 NER tags (Metadata filtering). |
+
+### Outcome
+The known failure mode from Phase 5 — where *"Which cathode materials show high oxygen reduction activity?"* returned battery papers — is now resolved. The system combines exact term matching and domain filtering to confidently return SOFC-specific materials, warning the user if ambiguity still exists.
