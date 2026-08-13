@@ -1,3 +1,4 @@
+# ruff: isort: skip_file
 """
 Phase 5: RAG Generation — rag_query.py
 
@@ -8,14 +9,11 @@ that context using google/flan-t5-base.
 
 import json
 
-import torch
-
-# fmt: on
-from langchain_chroma import Chroma
-
-# fmt: off
 # Must import HuggingFaceEmbeddings before torch to avoid Windows DLL crash
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings  # noqa: I001
+import torch  # noqa: I001
+
+from langchain_chroma import Chroma
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 # pyrefly: ignore [missing-import]
