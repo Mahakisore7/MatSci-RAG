@@ -1,10 +1,16 @@
 import os
 import sys
 
+import pytest
+
 # Ensure the src directory is in the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
+@pytest.mark.skipif(
+    not os.path.exists("data/chroma_db"),
+    reason="data/chroma_db not present (gitignored local artifact)",
+)
 def test_answer_query_returns_answer_and_sources():
     from src.rag.rag_query import answer_query
 

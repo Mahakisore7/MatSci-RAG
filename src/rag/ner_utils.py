@@ -78,12 +78,27 @@ def facts_by_paper_id(facts: list[dict]) -> dict[str, dict]:
     return {fact["source_id"]: fact for fact in facts if "source_id" in fact}
 
 
+# The trained NER model's precision on the "materials" entity type is low
+# (~9% F1, see RESULTS.md) — most extractions are noise, not real material
+# names (verified: only 2/400 papers in structured_facts.jsonl contain a
+# recognizable real material keyword anywhere in their "materials" list).
+# A naive low threshold (the original "> 3") fires on noise alone: an
+# empirical sweep across 15 varied queries — including clearly irrelevant
+# ones like "what is the capital of France?" — found noise-driven distinct
+# candidate counts of 4-18 with no separation between relevant and
+# irrelevant queries. This threshold is set well above that observed
+# ceiling so the feature fails safe (never blocks an ordinary answer)
+# rather than misfiring on noise. It will rarely trigger until NER
+# precision improves — see ADR-009.
+MIN_DISTINCT_MATERIALS_FOR_AMBIGUITY = 25
+
+
 def detect_ambiguity(
     retrieved_docs: list[Document], facts_by_id: dict[str, dict]
 ) -> list[str] | None:
-    """If the retrieved chunks span more than 3 distinct (cleaned) materials
-    across their source papers, flag it so the caller can abstain and ask
-    the user to narrow the question."""
+    """If the retrieved chunks span an unusually large number of distinct
+    (cleaned) materials across their source papers, flag it so the caller
+    can abstain and ask the user to narrow the question."""
     paper_ids = {
         doc.metadata.get("paper_id") for doc in retrieved_docs if doc.metadata.get("paper_id")
     }
@@ -93,7 +108,7 @@ def detect_ambiguity(
         if fact:
             candidates.update(clean_entities(fact.get("materials", [])))
 
-    if len(candidates) > 3:
+    if len(candidates) > MIN_DISTINCT_MATERIALS_FOR_AMBIGUITY:
         return list(candidates)
     return None
 
