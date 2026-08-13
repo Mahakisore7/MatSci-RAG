@@ -1,37 +1,34 @@
 """The user-facing chat interface. This is the diagram from Section 2 above,
 made real: a question in, a grounded answer + verifiable sources out."""
 
-import sys
-
 import streamlit as st
 
-sys.path.append("src")
-
-from rag.rag_query import answer_query
+from src.rag.rag_query import answer_query, verify_answer
 
 # Visual Polish: Configure the page layout and title
 st.set_page_config(page_title="MatSci-RAG Assistant", page_icon="🔬", layout="centered")
 
-# Visual Polish: Sidebar with system info
+# ── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.title("🔬 MatSci-RAG")
-    # Sidebar configuration
-    st.sidebar.title("Configuration")
-    use_hybrid = (
-        st.sidebar.radio(
-            "Retrieval Strategy", ["Hybrid (Dense + BM25 + NER)", "Dense Only (Phase 5)"], index=0
-        )
-        == "Hybrid (Dense + BM25 + NER)"
+    st.markdown("---")
+    st.markdown("**Retrieval Strategy**")
+    retrieval_choice = st.radio(
+        "Choose strategy",
+        ["Hybrid (Dense + BM25 + NER)", "Dense Only (Phase 5)"],
+        index=0,
+        label_visibility="collapsed",
     )
+    use_hybrid = retrieval_choice == "Hybrid (Dense + BM25 + NER)"
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### System Architecture")
-    st.sidebar.markdown("- **Corpus:** 400 SOFC papers")
-    st.sidebar.markdown("- **Embedding:** `BAAI/bge-small-en-v1.5`")
-    st.sidebar.markdown("- **Generator:** `google/flan-t5-base`")
-    st.sidebar.markdown("- **Database:** ChromaDB")
+    st.markdown("---")
+    st.markdown("### System Architecture")
+    st.markdown("- **Corpus:** 400 SOFC papers")
+    st.markdown("- **Embedding:** `BAAI/bge-small-en-v1.5`")
+    st.markdown("- **Generator:** `google/flan-t5-base`")
+    st.markdown("- **Database:** ChromaDB")
 
-# Chat interface
+# ── Main Chat UI ─────────────────────────────────────────────────────────────
 st.title("Materials Science Literature Assistant")
 st.markdown(
     "Ask questions about Solid Oxide Fuel Cells (SOFCs). "
@@ -65,8 +62,6 @@ if query := st.chat_input("Ask a question about SOFCs..."):
 
         # Self-Verification Step (skip if we abstained due to ambiguity)
         if "Multiple candidate materials found" not in answer:
-            from src.rag.rag_query import verify_answer
-
             with st.spinner("Verifying answer against context..."):
                 verification_result = verify_answer(query, answer, retrieved)
 
@@ -82,7 +77,7 @@ if query := st.chat_input("Ask a question about SOFCs..."):
         for i, p in enumerate(retrieved):
             title = p.metadata.get("title", "Unknown Title")
             source_id = p.metadata.get("paper_id", "Unknown Source")
-            with st.expander(f"[{i+1}] {title}"):
+            with st.expander(f"[{i + 1}] {title}"):
                 st.write(p.page_content)
                 st.caption(f"Source: {source_id}")
 

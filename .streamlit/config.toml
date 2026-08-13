@@ -3,3 +3,6 @@ gatherUsageStats = false
 
 [server]
 fileWatcherType = "none"
+headless = true
+enableXsrfProtection = false
+enableCORS = false
