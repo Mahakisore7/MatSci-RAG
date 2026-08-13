@@ -130,6 +130,34 @@ def answer_query(query: str) -> tuple[str, list]:
     return answer, retrieved_docs
 
 
+def verify_answer(query: str, answer: str, retrieved_docs: list) -> str:
+    """Asks the same LLM a follow-up question: does the retrieved context
+    actually support the answer it just gave? A second, independent check
+    before the answer is trusted."""
+    context_parts = []
+    for i, doc in enumerate(retrieved_docs, 1):
+        context_parts.append(f"[{i}] {doc.page_content.strip()}")
+    context = "\n\n".join(context_parts)
+
+    verify_prompt = (
+        f"Context:\n{context}\n\n"
+        f'Claim: "{answer}" (answering the question: "{query}")\n\n'
+        "Question: Does the context actually support this claim? Answer yes or no, "
+        "and quote the exact supporting sentence if yes.\nAnswer:"
+    )
+
+    model, tokenizer, device = get_llm()
+    inputs = tokenizer(verify_prompt, return_tensors="pt", truncation=True, max_length=1024).to(
+        device
+    )
+
+    with torch.no_grad():
+        output_ids = model.generate(**inputs, max_new_tokens=100)
+
+    verification = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+    return verification
+
+
 if __name__ == "__main__":
     queries = [
         "What materials are used as electrolytes in solid oxide fuel cells?",

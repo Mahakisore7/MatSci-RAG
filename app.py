@@ -55,6 +55,19 @@ if query:
 
         st.markdown(f"**{answer}**")
 
+        # Self-Verification Step
+        from src.rag.rag_query import verify_answer
+
+        with st.spinner("Verifying answer against context..."):
+            verification_result = verify_answer(query, answer, retrieved)
+
+            if verification_result.lower().startswith("yes"):
+                st.success("✅ **Verified:** " + verification_result)
+            elif verification_result.lower().startswith("no"):
+                st.warning("⚠️ **Unverified:** " + verification_result)
+            else:
+                st.info("ℹ️ **Verification Note:** " + verification_result)
+
         st.markdown("---")
         st.markdown("### 📚 Sources used")
         for i, p in enumerate(retrieved):
