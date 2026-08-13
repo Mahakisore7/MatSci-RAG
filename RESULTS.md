@@ -103,7 +103,7 @@ The cathode/oxygen-reduction question still retrieves off-domain battery papers 
 - **Test set size:** 20 specific, hand-written questions
 - **Retrieval hit rate:** 100.0% (20/20)
 - **k (top-k retrieved):** 5
-- **Evaluated with:** `src/evaluate_rag.py`
+- **Evaluated with:** `scripts/evaluate_rag.py`
 
 ### Notes on the 100% Hit Rate
 The retrieval hit rate was a perfect 20/20. However, as noted in the project documentation, a 100% hit rate often indicates the questions might be "too easy." 
