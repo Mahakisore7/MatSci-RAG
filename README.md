@@ -1,139 +1,54 @@
-# MatSci-RAG — Build Guide
+# 🔬 MatSci-RAG: Domain-Specific RAG for Materials Science
 
-## CI Limitations
-> **Note on CI Testing:** This project uses a locally fine-tuned MatSciBERT model for Named Entity Recognition (NER) located in `models/matscibert_ner/`. Because model weights are too large for standard git tracking without Git LFS, they are `.gitignore`d. As a result, the GitHub Actions CI pipeline tests the RAG retrieval logic and application structure, but does *not* test the NER inference locally during CI runs. NER model tests are executed locally only.
+This project is a complete, end-to-end Retrieval-Augmented Generation (RAG) system built specifically for Materials Science literature, focusing on Solid Oxide Fuel Cells (SOFCs). 
 
-### Domain-Specific LLM Assistant for Materials Science Literature (RAG + NER)
+It demonstrates how to upgrade a "generic" RAG pipeline into a **Domain-Specific NER-RAG** system using a custom-trained MatSciBERT model to extract entities (materials, devices, experiments) and use them to intelligently filter vector searches.
 
-> **Where this file lives:** `docs/build-guide/README.md`
-> This is the landing page for the whole guide — start here, then open each phase file in order.
+## 🚀 Final Project Status (v1.0.0)
+**Status:** COMPLETE (Phases 0-8)
 
----
-
-## What This Project Is
-
-A system that answers materials-science questions by retrieving real passages from a curated arXiv corpus and generating answers grounded *only* in that retrieved text — plus a fine-tuned MatSciBERT NER layer that extracts structured (material, property) facts from the same corpus. Built as a direct, documented extension of a specific base paper (Maharana et al., 2025), addressing its own reported limitations (see the Zeroth Review document for the full base-paper and novelty argument this guide implements).
-
----
-
-## System Architecture — The Whole Project at a Glance
-
-![Master system architecture](docs/master_architecture.png)
-
-Four layers, built up phase by phase:
-- **Data layer** (Phases 1-3): collect abstracts, fine-tune and apply NER, extract structured facts
-- **Retrieval layer** (Phase 4): make the corpus searchable by meaning
-- **Generation layer** (Phase 5): turn a question into a grounded, sourced answer
-- **Interface + ops layer** (Phases 6-7): evaluation, the Streamlit UI, and CI/CD
-
-Nothing here is built out of order — each layer depends on the one below it already existing and being verified.
+### Key Features Implemented:
+1. **Data Ingestion:** 400 SOFC papers scraped from ArXiv.
+2. **Custom NER Model:** Fine-tuned MatSciBERT on the Bosch SOFC-Exp corpus to extract domain entities.
+3. **Information Extraction:** Processed all 400 papers to extract structured facts (`structured_facts.jsonl`).
+4. **Vector Database:** 1,330 text chunks embedded into ChromaDB using `BAAI/bge-small-en-v1.5`.
+5. **LLM Generator:** Local inference using `google/flan-t5-base` with strict grounding prompts.
+6. **Self-Verification & Abstention:** The model double-checks its own answers and refuses to answer ambiguous queries.
+7. **Hybrid Retrieval (NER Filter + BM25 + Dense):** The core innovation. By combining exact keyword matching with NER-based domain filtering (restricting searches to SOFC papers), the system completely eliminates the cross-domain "battery vs fuel cell" confusion common in generic RAG.
+8. **Streamlit UI:** A fully functional browser chat interface for easy interaction.
 
 ---
 
-## How to Use This Guide
+## 🛠️ How to Install and Run
 
-Work through the files **in order, one at a time.** Each phase file is fully self-contained: an overview of *why* the phase exists, diagrams, exact file structure before/after, git workflow, complete step-by-step implementation, a hard checkpoint you must pass before continuing, troubleshooting, and — where genuinely relevant, not by default — an honest note on what an IDE agent (Antigravity / Claude / Gemini) can and can't help with in that specific phase.
+### 1. Setup the Environment
+This project uses `uv` for reproducible, lightning-fast dependency management.
+```bash
+# Clone the repository
+git clone https://github.com/Mahakisore7/MatSci-RAG.git
+cd MatSci-RAG
 
-**Do not skip a phase's checkpoint.** Every later phase's code assumes the previous phase's output already exists and is correct — that assumption is what keeps debugging tractable.
-
----
-
-## The Nine Files
-
-| # | File | What It Builds | Tag on Completion |
-|---|---|---|---|
-| — | `README.md` | *(this file)* — index and architecture overview | — |
-| 0 | `00_environment_setup.md` | uv, ruff, pre-commit, logging, config, folder structure, first git commit | `v0.1.0` |
-| 1 | `01_data_collection.md` | arXiv corpus fetching → `data/corpus.jsonl` | `v0.2.0` |
-| 2 | `02_ner_training.md` | Fine-tune MatSciBERT vs. generic BERT on Matscholar, compare F1 | `v0.3.0` |
-| 3 | `03_ner_inference.md` | Apply the trained NER model to your own corpus → structured facts table | `v0.4.0` |
-| 4 | `04_rag_indexing.md` | Chunk, embed, and index the corpus with FAISS | `v0.5.0` |
-| 5 | `05_rag_generation.md` | Retrieval + grounded generation → `answer_query()` | `v0.6.0` |
-| 6 | `06_evaluation.md` | Hand-written test questions → measured retrieval hit rate | `v0.7.0` |
-| 7 | `07_ui_and_cicd.md` | Streamlit chat UI + real GitHub Actions CI | `v0.8.0` |
-| 8 | `08_stretch_improvements.md` | Optional upgrades (self-verification, abstention, hybrid retrieval) | `v1.0.0` |
-
----
-
-## The Daily Development Workflow
-
-![Tool workflow](docs/tool_workflow.png)
-
-Set up once in Phase 0, then running automatically for the rest of the project: an inner loop (`uv run` while coding), a commit-time loop (pre-commit + ruff, blocking bad commits before they happen), and a push-time loop (GitHub Actions CI, giving an independent pass/fail signal).
-
----
-
-## Git Branching Model Used Throughout
-
-![Git branching model](docs/git_branching.png)
-
-One short-lived feature branch per phase (`phase-0-setup`, `phase-1-data-collection`, ...), merged back to `main` only once that phase's checkpoint passes, tagged so every milestone is a restorable point in history.
-
-**Commit message convention (Conventional Commits):**
+# Install all dependencies exactly as locked
+uv sync
 ```
-feat: ...      new functionality
-fix: ...       bug fix
-docs: ...      documentation only
-test: ...      adding/updating tests
-chore: ...     tooling, config, dependencies -- no source logic change
-refactor: ...  restructuring, no behavior change
+
+### 2. Run the Chat UI
+```bash
+uv run streamlit run app.py
+```
+A browser window will open at `http://localhost:8501`. You can toggle between **Dense Only** (generic RAG) and **Hybrid** (our advanced pipeline) in the sidebar to see the difference in performance.
+
+### 3. Run the Test Suite
+```bash
+uv run pytest tests/ -v
 ```
 
 ---
 
-## Tooling Stack Reference
+## 📊 Results & Documentation
 
-| Concern | Tool | Set up in |
-|---|---|---|
-| Python env + packages | **uv** | Phase 0 |
-| Dependency manifest | **pyproject.toml** + **uv.lock** | Phase 0 |
-| Linting + formatting | **ruff** | Phase 0 |
-| Pre-commit enforcement | **pre-commit** + ruff hooks | Phase 0 |
-| Secrets/config | **.env** + **python-dotenv** | Phase 0 |
-| Logging | Python **logging** module | Phase 0 |
-| NER model | **MatSciBERT** vs. **bert-base-uncased** | Phase 2 |
-| Embeddings | **sentence-transformers** (all-MiniLM-L6-v2) | Phase 4 |
-| Vector search | **FAISS** | Phase 4 |
-| Generation | **Flan-T5-base** | Phase 5 |
-| Testing | **pytest** | Every phase |
-| UI | **Streamlit** | Phase 7 |
-| CI/CD | **GitHub Actions** + **astral-sh/setup-uv** | Phase 0 (placeholder), Phase 7 (finished) |
+- **[RESULTS.md](RESULTS.md):** Detailed benchmark results showing MatSciBERT outperforming generic BERT, 100% retrieval hit-rates, and the final impact of Phase 8 Hybrid Retrieval.
+- **[docs/ADRs/](docs/ADRs/):** Architecture Decision Records explaining why every major technical choice was made.
+- **[docs/Phases/](docs/Phases/):** The step-by-step build guide.
 
----
-
-## Project Folder Structure (End State, After Phase 8)
-
-```
-MatSci-RAG/
-├── docs/build-guide/          <- this guide
-│   ├── README.md
-│   ├── 00_environment_setup.md ... 08_stretch_improvements.md
-│   └── diagrams/
-├── src/
-│   ├── config.py, logging_config.py
-│   ├── fetch_corpus.py                    (Phase 1)
-│   ├── prepare_ner_data.py, train_ner.py  (Phase 2)
-│   ├── run_ner_inference.py               (Phase 3)
-│   ├── build_index.py, quick_retrieval_test.py  (Phase 4)
-│   ├── rag_query.py                       (Phase 5)
-│   ├── evaluate_rag.py                    (Phase 6)
-│   └── hybrid_retrieval.py                (Phase 8, optional)
-├── tests/                     (one test file per phase)
-├── data/                      (gitignored — corpus, index, structured facts)
-├── models/                    (gitignored — fine-tuned checkpoints)
-├── app.py                     (Phase 7)
-├── .github/workflows/ci.yml   (Phase 0 placeholder -> Phase 7 finished)
-├── RESULTS.md                 (NER F1 + RAG hit rate, your actual evidence)
-├── pyproject.toml, uv.lock
-└── README.md                  (project root — different from this file)
-```
-
----
-
-## Where This Fits With Your Earlier Documents
-
-This guide is the *implementation* of the plan established in your Zeroth Review document (objective, base paper, novelty argument) and the literature review's improvement roadmap (which Phase 8's three upgrades are drawn directly from). If a mentor asks "how does the code map to what you proposed," this file — and the master architecture diagram above — is the answer.
-
----
-
-**Start with `00_environment_setup.md`.**
+> **Note on CI Limitations:** The GitHub Actions CI pipeline runs linting (`ruff`) and end-to-end retrieval smoke tests. However, it does not run the NER training tests because the fine-tuned model weights (~400MB) are stored locally in `models/` and are excluded via `.gitignore`.

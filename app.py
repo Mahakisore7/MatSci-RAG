@@ -15,45 +15,67 @@ st.set_page_config(page_title="MatSci-RAG Assistant", page_icon="🔬", layout="
 # Visual Polish: Sidebar with system info
 with st.sidebar:
     st.title("🔬 MatSci-RAG")
-    st.markdown("---")
-    st.markdown("### System Architecture")
-    st.markdown("- **Corpus**: 400 SOFC Papers")
-    st.markdown("- **Embedding**: `BGE-small-en-v1.5`")
-    st.markdown("- **Generator**: `google/flan-t5-base`")
-    st.markdown("- **Database**: ChromaDB")
-    st.markdown("---")
-    st.caption("Built for Materials Science Literature Retrieval.")
+    # Sidebar configuration
+    st.sidebar.title("Configuration")
+    use_hybrid = (
+        st.sidebar.radio(
+            "Retrieval Strategy", ["Hybrid (Dense + BM25 + NER)", "Dense Only (Phase 5)"], index=0
+        )
+        == "Hybrid (Dense + BM25 + NER)"
+    )
 
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### System Architecture")
+    st.sidebar.markdown("- **Corpus:** 400 SOFC papers")
+    st.sidebar.markdown("- **Embedding:** `BAAI/bge-small-en-v1.5`")
+    st.sidebar.markdown("- **Generator:** `google/flan-t5-base`")
+    st.sidebar.markdown("- **Database:** ChromaDB")
+
+# Chat interface
 st.title("Materials Science Literature Assistant")
-st.write(
-    "Ask a question about Solid Oxide Fuel Cells (SOFC) or related materials science "
-    "literature, and the AI will generate an answer strictly based on retrieved scientific papers."
+st.markdown(
+    "Ask questions about Solid Oxide Fuel Cells (SOFCs). "
+    "The AI will answer based *only* on the provided literature corpus."
 )
 
-# Initialize chat history in session state for a better UI experience
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history (we only really need to show the last one, but this is a nice chat layout)
+# Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-query = st.chat_input("Ask a question about SOFCs...")
+# Accept user input
+if query := st.chat_input("Ask a question about SOFCs..."):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": query})
 
-if query:
-    # Display user message
+    # Display user message in chat message container
     with st.chat_message("user"):
         st.markdown(query)
-
-    st.session_state.messages.append({"role": "user", "content": query})
 
     # Display assistant response
     with st.chat_message("assistant"):
         with st.spinner("Searching literature and generating answer..."):
-            answer, retrieved = answer_query(query)
+            answer, retrieved = answer_query(query, use_hybrid=use_hybrid)
 
         st.markdown(f"**{answer}**")
+
+        # Self-Verification Step (skip if we abstained due to ambiguity)
+        if "Multiple candidate materials found" not in answer:
+            from src.rag.rag_query import verify_answer
+
+            with st.spinner("Verifying answer against context..."):
+                verification_result = verify_answer(query, answer, retrieved)
+
+                if verification_result.lower().startswith("yes"):
+                    st.success("✅ **Verified:** " + verification_result)
+                elif verification_result.lower().startswith("no"):
+                    st.warning("⚠️ **Unverified:** " + verification_result)
+                else:
+                    st.info("ℹ️ **Verification Note:** " + verification_result)
 
         st.markdown("---")
         st.markdown("### 📚 Sources used")
