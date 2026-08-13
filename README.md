@@ -27,7 +27,7 @@ All 9 phases (0–8) are implemented, tested, and committed.
 ## 🛠️ Setup & Run
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.13
 - [`uv`](https://docs.astral.sh/uv/) package manager
 
 ### Install

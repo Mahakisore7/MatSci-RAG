@@ -1,7 +1,7 @@
 [project]
 name = "matsci-rag"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "Domain-specific RAG system for Solid Oxide Fuel Cell materials science literature, using MatSciBERT NER and hybrid dense+BM25 retrieval."
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
@@ -9,13 +9,10 @@ dependencies = [
     "arxiv",
     "chromadb>=1.5.9",
     "datasets",
-    "faiss-cpu",
     "langchain>=1.3.14",
     "langchain-chroma>=1.1.0",
     "langchain-community>=0.4.2",
     "langchain-huggingface>=1.2.2",
-    "matplotlib",
-    "pandas",
     "python-dotenv",
     "rank-bm25>=0.2.2",
     "scikit-learn",
@@ -45,7 +42,7 @@ explicit = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
