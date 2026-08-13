@@ -17,6 +17,7 @@ dependencies = [
     "matplotlib",
     "pandas",
     "python-dotenv",
+    "rank-bm25>=0.2.2",
     "scikit-learn",
     "sentence-transformers",
     "seqeval",
