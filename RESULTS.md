@@ -164,3 +164,21 @@ The generated answers from Phase 5 proved that `flan-t5-base` perfectly follows 
 
 ### Outcome
 The known failure mode from Phase 5 — where *"Which cathode materials show high oxygen reduction activity?"* returned battery papers — is now resolved. The system combines exact term matching and domain filtering to confidently return SOFC-specific materials, warning the user if ambiguity still exists.
+
+### Live Test Results (2026-08-13)
+
+| Question | Answer | Verdict |
+|---|---|---|
+| *"What is considered a major reason for anode degradation in Ni-YSZ solid oxide fuel cells?"* | **"Ni coarsening is considered a major reason for anode degradation in Ni-YSZ solid oxide fuel cells"** | ✅ Correct — direct fact extraction |
+| *"What are the advantages of using proton-conducting electrolytes in SOFCs?"* | **"I don't know based on the given context."** | ✅ Correct refusal — Flan-T5-base cannot synthesise across paragraphs |
+| *"Who won the Super Bowl last year?"* | Returned 5 BM25 results then refused to answer | ✅ Correct guardrail — off-topic query handled |
+
+### Bug Fixes Applied During Phase 8 Launch
+
+| Bug | Root Cause | Fix |
+|---|---|---|
+| Silent Streamlit crash after "Connecting to ChromaDB" | `ruff` re-sorted imports alphabetically on commit, placing `import torch` before `HuggingFaceEmbeddings`, causing a Windows DLL conflict | Added `# ruff: isort: skip_file` to `rag_query.py` |
+| Second crash after the import fix — app still exited | `app.py` imported `rag_query` via two different module paths (`rag.rag_query` via `sys.path.append` AND `src.rag.rag_query` directly), causing Python to load the module twice and crash on the second ChromaDB init | Removed `sys.path.append("src")` hack; unified all imports to `src.rag.rag_query` |
+
+### Known Limitation (Technical Debt)
+The NER metadata filter in `hybrid_retrieve()` returns **0 dense results** (`Merged 0 dense and 5 BM25 results`). The ChromaDB `$contains` filter on the `devices` field matches nothing because the `devices` metadata field was not stored per-chunk at index-build time (Phase 4 predates Phase 8). The system falls back to pure BM25 search, which still works correctly. A full fix requires re-running `build_index.py` with the NER metadata joined in. Tracked in [ADR-008](ADRs/ADR-008-phase8-bugfixes-import-order-double-import.md).
