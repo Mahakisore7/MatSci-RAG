@@ -21,6 +21,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # pyrefly: ignore [missing-import]
 from src.core.logging_config import get_logger
 
+# pyrefly: ignore [missing-import]
+from src.rag.ner_utils import clean_entities
+
 log = get_logger(__name__)
 
 # ── Paths ────────────────────────────────────────────────────────────────────
@@ -74,17 +77,6 @@ def build_documents(corpus: dict, facts: dict) -> list[Document]:
 
         # Store clean text only — BGE prefix is only used at embedding time
         text = paper.get("abstract", "")
-
-        # Deduplicate and filter out noisy NER tokens (punctuation, subwords)
-        def clean_entities(entity_list: list) -> list:
-            seen = set()
-            result = []
-            for e in entity_list:
-                e = e.strip()
-                if len(e) > 2 and not e.startswith("##") and e not in seen:
-                    seen.add(e)
-                    result.append(e)
-            return result
 
         materials = clean_entities(fact.get("materials", []))
         devices = clean_entities(fact.get("devices", []))

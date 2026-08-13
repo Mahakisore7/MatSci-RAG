@@ -7,8 +7,6 @@ from ChromaDB, build a grounding prompt, and generate an answer from ONLY
 that context using google/flan-t5-base.
 """
 
-import json
-
 # Must import HuggingFaceEmbeddings before torch to avoid Windows DLL crash
 from langchain_huggingface import HuggingFaceEmbeddings  # noqa: I001
 import torch  # noqa: I001
@@ -18,6 +16,9 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 # pyrefly: ignore [missing-import]
 from src.core.logging_config import get_logger
+
+# pyrefly: ignore [missing-import]
+from src.rag.ner_utils import detect_ambiguity, facts_by_paper_id, load_structured_facts
 
 log = get_logger(__name__)
 
@@ -109,61 +110,7 @@ def retrieve(query: str, k: int = 5) -> list:
     return results
 
 
-def load_structured_facts(filepath: str = "data/structured_facts.jsonl") -> list[dict]:
-    facts = []
-    try:
-        with open(filepath, encoding="utf-8") as f:
-            for line in f:
-                facts.append(json.loads(line))
-    except FileNotFoundError:
-        log.warning(f"Could not load {filepath} - abstention will be disabled")
-    return facts
-
-
-_structured_facts = load_structured_facts()
-
-
-def clean_materials(materials: list[str]) -> set[str]:
-    cleaned = set()
-    for m in materials:
-        # Filter out noisy MatSciBERT wordpieces and common stopwords
-        if (
-            m.startswith("##")
-            or len(m) <= 2
-            or m
-            in [
-                "the",
-                "and",
-                "or",
-                "for",
-                "solid",
-                "sof",
-                "fuel",
-                "reaction",
-                "distinct",
-                "screened",
-                "potential",
-                "predicted",
-            ]
-        ):
-            continue
-        cleaned.add(m)
-    return cleaned
-
-
-def detect_ambiguity(retrieved_docs: list, structured_facts: list[dict]) -> list[str] | None:
-    source_ids = {
-        doc.metadata.get("source_id") for doc in retrieved_docs if doc.metadata.get("source_id")
-    }
-    candidates = set()
-    for fact in structured_facts:
-        if fact["source_id"] in source_ids:
-            candidates.update(clean_materials(fact.get("materials", [])))
-
-    # If more than 3 distinct materials are found, flag it as ambiguous
-    if len(candidates) > 3:
-        return list(candidates)
-    return None
+_structured_facts = facts_by_paper_id(load_structured_facts())
 
 
 def answer_query(query: str, use_hybrid: bool = True) -> tuple[str, list]:
@@ -173,7 +120,7 @@ def answer_query(query: str, use_hybrid: bool = True) -> tuple[str, list]:
     if use_hybrid:
         from src.rag.hybrid_retrieval import hybrid_retrieve
 
-        retrieved_docs = hybrid_retrieve(query, k=5, use_ner_filter=True)
+        retrieved_docs = hybrid_retrieve(query, k=5, use_ner_boost=True)
     else:
         bge_query = BGE_QUERY_PREFIX + query
         retrieved_docs = retriever.invoke(bge_query)
