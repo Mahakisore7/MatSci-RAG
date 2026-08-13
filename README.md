@@ -47,7 +47,8 @@ Opens at `http://localhost:8501`. Use the sidebar to toggle between **Hybrid** (
 ```bash
 uv run pytest tests/ -v
 ```
-All 10 tests pass locally.
+All 20 tests pass locally (with `data/`/`models/` populated). In CI, 10 pure-logic unit tests
+always run; the 10 that depend on local data/model artifacts skip cleanly instead of failing.
 
 ---
 
@@ -59,10 +60,13 @@ Query
   ▼
 Hybrid Retrieval  ──►  BM25 keyword match (exact terms)
   │               ──►  Dense vector search (ChromaDB / BGE-small-en)
-  │               ──►  NER Metadata filter (SOFC domain gating)
+  │               ──►  Fused via Reciprocal Rank Fusion, boosted by
+  │                     NER entity overlap with the query (ADR-009)
   │
   ▼
-detect_ambiguity()   ──►  if > 3 distinct materials → abstain, warn user
+detect_ambiguity()   ──►  abstain if an unusually large number of
+                            distinct materials are found (rarely fires —
+                            see ADR-009 on current NER precision limits)
   │
   ▼
 Flan-T5-base         ──►  grounded answer from retrieved context only
@@ -108,16 +112,19 @@ MatSci-RAG/
 │   └── rag/
 │       ├── build_index.py
 │       ├── rag_query.py            ← core pipeline + self-verification
-│       └── hybrid_retrieval.py     ← BM25 + NER filter (Phase 8)
+│       ├── ner_utils.py            ← shared NER cleaning, ambiguity check, RRF+boost reranking
+│       └── hybrid_retrieval.py     ← BM25 + dense, fused via ner_utils (Phase 8 / ADR-009)
 ├── scripts/
 │   ├── evaluate_rag.py
 │   ├── quick_retrieval_test.py
 │   └── verify_gpu.py
-├── tests/                          ← 10 pytest tests (all passing)
+├── tests/                          ← 20 pytest tests (10 pure unit tests always run in
+│                                      CI; 10 artifact-dependent ones skip cleanly without
+│                                      local data/models instead of erroring)
 ├── data/                           ← gitignored (corpus, chroma_db, facts)
 ├── models/                         ← gitignored (fine-tuned weights ~400MB)
 ├── docs/
-│   ├── ADRs/                       ← 8 Architecture Decision Records
+│   ├── ADRs/                       ← 9 Architecture Decision Records
 │   ├── Phases/                     ← Step-by-step build guide (Phases 0–8)
 │   ├── results/                    ← Phase-level explanation docs
 │   └── sample_questions.md         ← Ready-to-paste demo questions
@@ -133,9 +140,9 @@ MatSci-RAG/
 ## 📝 Documentation
 
 - **[RESULTS.md](RESULTS.md)** — NER F1, retrieval hit-rates, live test output, and bug table
-- **[docs/ADRs/](docs/ADRs/)** — 8 Architecture Decision Records (every major technical choice)
+- **[docs/ADRs/](docs/ADRs/)** — 9 Architecture Decision Records (every major technical choice)
 - **[docs/sample_questions.md](docs/sample_questions.md)** — Ready-to-paste demo questions for the UI
 
 ---
 
-> **CI Note:** GitHub Actions runs `ruff` linting and RAG retrieval smoke tests on every push. NER training tests are excluded from CI because fine-tuned model weights (~400MB) are stored locally in `models/` and excluded from git.
+> **CI Note:** GitHub Actions runs `ruff` linting and `pytest tests/ -v` on every push. `data/` and `models/` are gitignored (fine-tuned weights are ~400MB–1.7GB and corpus/index files are locally generated), so the 10 tests that depend on those artifacts (NER training/inference, retrieval, generation) skip cleanly on a fresh checkout via `pytest.mark.skipif`, rather than failing. The 10 tests in `tests/test_ner_utils.py` are pure-logic unit tests with no such dependency and always run.

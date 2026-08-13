@@ -1,8 +1,16 @@
 # ADR-002: MatSciBERT vs BERT-base as Fine-Tuning Backbone
 
-**Status:** Accepted  
+**Status:** Accepted (F1 numbers below superseded — see note)  
 **Date:** 2026-07-25  
 **Author:** Mahakisore7
+
+> **Note (2026-08-13):** The F1 numbers in this ADR were measured *before*
+> [ADR-004](ADR-004-fix-character-offset-bug.md)'s character-offset bugfix
+> and are invalid — they were computed on misaligned training data. The
+> current, valid numbers are in `RESULTS.md`
+> (MatSciBERT: 0.0915, BERT-base: 0.0816). The **directional conclusion**
+> below (MatSciBERT > BERT-base) still holds under the corrected numbers;
+> only the absolute values changed.
 
 ---
 

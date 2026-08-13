@@ -140,7 +140,9 @@ The generated answers from Phase 5 proved that `flan-t5-base` perfectly follows 
 > **Hardware:** GPU (CUDA detected, `flan-t5-base` loaded on `cuda`)
 
 ### Test Results
-- `uv run pytest tests/ -v` → **10/10 passed** ✅
+- `uv run pytest tests/ -v` → **10/10 passed** ✅ (as of Phase 7; see the Phase 8 follow-up
+  below — the suite has since grown to 20 tests, with artifact-dependent ones now skipping
+  cleanly instead of erroring on a fresh checkout without local data/models)
 
 ### Bugs Fixed During Phase 7
 | Bug | Root Cause | Fix |
@@ -180,5 +182,19 @@ The known failure mode from Phase 5 — where *"Which cathode materials show hig
 | Silent Streamlit crash after "Connecting to ChromaDB" | `ruff` re-sorted imports alphabetically on commit, placing `import torch` before `HuggingFaceEmbeddings`, causing a Windows DLL conflict | Added `# ruff: isort: skip_file` to `rag_query.py` |
 | Second crash after the import fix — app still exited | `app.py` imported `rag_query` via two different module paths (`rag.rag_query` via `sys.path.append` AND `src.rag.rag_query` directly), causing Python to load the module twice and crash on the second ChromaDB init | Removed `sys.path.append("src")` hack; unified all imports to `src.rag.rag_query` |
 
-### Known Limitation (Technical Debt)
-The NER metadata filter in `hybrid_retrieve()` returns **0 dense results** (`Merged 0 dense and 5 BM25 results`). The ChromaDB `$contains` filter on the `devices` field matches nothing because the `devices` metadata field was not stored per-chunk at index-build time (Phase 4 predates Phase 8). The system falls back to pure BM25 search, which still works correctly. A full fix requires re-running `build_index.py` with the NER metadata joined in. Tracked in [ADR-008](ADRs/ADR-008-phase8-bugfixes-import-order-double-import.md).
+### Known Limitation (Technical Debt) — Resolved 2026-08-13, see below
+~~The NER metadata filter in `hybrid_retrieve()` returns **0 dense results** (`Merged 0 dense and 5 BM25 results`). The ChromaDB `$contains` filter on the `devices` field matches nothing because the `devices` metadata field was not stored per-chunk at index-build time (Phase 4 predates Phase 8). The system falls back to pure BM25 search, which still works correctly. A full fix requires re-running `build_index.py` with the NER metadata joined in.~~ The actual root cause (not what was guessed above) and the fix are documented in [ADR-009](ADRs/ADR-009-ner-aware-retrieval-reranking.md).
+
+---
+
+## Phase 8 Follow-up: Bug Fixes & NER-Aware Retrieval (2026-08-13)
+
+A closer audit of Phase 8 found two of its three stretch features didn't actually work as documented above, both traced to the same root cause: `build_index.py` stores each chunk's paper id under the metadata key `"paper_id"`, but the query-side code in `rag_query.py`/`hybrid_retrieval.py` read a key called `"source_id"` — which never existed on a retrieved `Document`.
+
+| Feature | Actual state before this fix | Fix |
+|---|---|---|
+| **Uncertainty Abstention** | `detect_ambiguity()` always returned `None` (dead code) — the key bug above meant it could never find any candidate materials, so it never abstained, ever. | Fixed the key lookup. This immediately surfaced a second problem: the original `> 3 distinct materials` threshold fires on NER noise, not real ambiguity (verified: only 2/400 papers have a recognizable real material name anywhere in their extracted `materials` list). Threshold raised to a data-driven, empirically-calibrated value — see ADR-009. The feature now fails safe rather than misfiring, but will rarely trigger until NER precision improves. |
+| **Hybrid Retrieval (NER filter)** | The `devices $contains "fuel"/"oxide"` filter returned 0 dense results on *every* query (confirmed via isolated ChromaDB repro: `$contains` isn't a valid metadata operator in this version) — silently falling back to BM25-only, exactly as the "Known Limitation" note above described, though the guessed root cause there was wrong. | Replaced the hard filter with Reciprocal Rank Fusion (dense + BM25) plus a soft boost for documents whose NER-extracted entities are mentioned in the query — see ADR-009. Measured improvement on the Phase 5 cathode-ambiguity case: the correct SOFC paper moved from 4th to 2nd-3rd place in the ranking (previously 4/5 results were off-domain battery papers). |
+| **Self-Verification** | Worked as documented — unaffected by the above bug. | No change. |
+
+Also fixed as part of the same pass: the same `paper_id`/`source_id` bug in `hybrid_retrieval.py`'s result-deduplication key (degraded, didn't crash); 10 new unit tests added for the fixed logic (`tests/test_ner_utils.py`), requiring no local model/data artifacts so they run in CI; the 5 pre-existing artifact-dependent tests now skip cleanly instead of erroring when `data/`/`models/` aren't present (they weren't previously runnable in CI at all, since nothing under those gitignored paths is tracked in git).

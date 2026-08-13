@@ -9,11 +9,11 @@ These questions test the system's ability to find specific technical facts and s
 - *"What is the typical operating temperature range for intermediate-temperature SOFCs (IT-SOFCs)?"*
 
 ### 2. Testing Hybrid Retrieval vs Dense (Phase 8 Upgrade)
-To see the true power of Phase 8, toggle the sidebar to **"Dense Only"**, ask this question, and see it answer with a battery material (e.g. FePO4). Then toggle to **"Hybrid"** and ask it again to see it correctly use NER filtering to find a SOFC material.
+Toggle the sidebar to **"Dense Only"**, ask this question, and see it lean towards battery cathode papers (e.g. FePO4). Then toggle to **"Hybrid"** and ask again — the genuinely relevant SOFC paper ranks noticeably higher (it's boosted, not filtered-in, so this is a ranking shift, not a guarantee of an all-SOFC result set — see [ADR-009](ADRs/ADR-009-ner-aware-retrieval-reranking.md)).
 - *"Which cathode materials show high oxygen reduction activity?"*
 
-### 3. Testing Uncertainty Abstention (Phase 8 Upgrade)
-This question is intentionally too vague. The system will retrieve papers mentioning many different materials (LSCF, YSZ, etc.). Instead of guessing, it should trigger the ambiguity warning: *"Multiple candidate materials found across sources... Please narrow your question."*
+### 3. Uncertainty Abstention (Phase 8 Upgrade — currently rarely triggers)
+This was intended to demo the system refusing to answer an overly vague question by detecting many candidate materials in the retrieved papers. In practice, the underlying NER model's `materials` extraction is too noisy to reliably power this (see ADR-009) — the abstention threshold is deliberately set high so it fails safe instead of misfiring on ordinary questions, which means it will rarely fire at all until NER precision improves. Not recommended as a live demo right now.
 - *"What material was used in the experiment?"*
 
 ### 4. Testing Guardrails (Anti-Hallucination)

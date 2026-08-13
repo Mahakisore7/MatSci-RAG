@@ -21,11 +21,14 @@ Each ADR follows this standard structure:
 | ADR | Title | Status |
 |---|---|---|
 | [ADR-001](ADR-001-use-sofc-exp-dataset.md) | Use SOFC-Exp Dataset for NER Training | Accepted |
-| [ADR-002](ADR-002-matscibert-vs-bert-baseline.md) | MatSciBERT vs BERT-base as Fine-Tuning Backbone | Accepted |
+| [ADR-002](ADR-002-matscibert-vs-bert-baseline.md) | MatSciBERT vs BERT-base as Fine-Tuning Backbone | Accepted (F1 numbers superseded by ADR-004) |
 | [ADR-003](ADR-003-sofc-corpus-for-inference.md) | Fetch SOFC-Specific arXiv Corpus for Inference | Accepted |
 | [ADR-004](ADR-004-fix-character-offset-bug.md) | Fix Windows `\r\n` Character-Offset Bug in Parser | Accepted |
 | [ADR-005](ADR-005-advanced-rag-stack.md) | Advanced RAG Stack — ChromaDB + BGE over FAISS + MiniLM | Accepted |
 | [ADR-006](ADR-006-raw-model-generate-over-langchain-pipeline.md) | Use Raw `model.generate()` over LangChain Pipeline for Generation | Accepted |
+| [ADR-007](ADR-007-streamlit-ui-filewatcher-fix.md) | Streamlit for UI and `fileWatcherType=none` for Windows Compatibility | Accepted |
+| [ADR-008](ADR-008-phase8-bugfixes-import-order-double-import.md) | Phase 8 Bug Fixes — Import Order, Double Import | Accepted (NER filter section superseded by ADR-009) |
+| [ADR-009](ADR-009-ner-aware-retrieval-reranking.md) | NER-Aware Retrieval Reranking (Replacing the Broken Metadata Filter) | Accepted |
 
 ## Naming Convention
 

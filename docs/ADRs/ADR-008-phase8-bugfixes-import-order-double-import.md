@@ -61,6 +61,12 @@ Removed the `sys.path.append("src")` hack entirely from `app.py`. All imports no
 
 **Decision:** Accepted as a known limitation. No fix applied at this stage.
 
+> **Superseded by [ADR-009](ADR-009-ner-aware-retrieval-reranking.md) (2026-08-13):** the root
+> cause was confirmed (`$contains` is a `where_document` operator, not a metadata `where`
+> operator) and the filter was replaced with a soft entity-overlap reranking boost rather than
+> a hard filter — see ADR-009 for why a hard filter would have been the wrong fix even once
+> the operator itself was corrected.
+
 ### What Was Observed
 The live terminal logs showed:
 ```
