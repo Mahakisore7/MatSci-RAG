@@ -327,20 +327,34 @@ safe despite it, and Section 8's "remaining work" for how it could be improved.
 
 - **Hit-rate:** 20/20 (100%) on a hand-written set of specific, fact-based test questions
   (`scripts/evaluate_rag.py`, k=5, dense retrieval) — re-run today, result unchanged.
-- **Known failure mode and measured improvement:** the query *"Which cathode materials show high
-  oxygen reduction activity?"* pulls off-domain battery-cathode papers under dense-only search
-  (4 of 5 results). Under hybrid retrieval (RRF fusion + NER entity-overlap boost), the one
-  genuinely relevant SOFC paper moves from 4th place to 2nd–3rd place and is represented twice in
-  the top 5 — a real, measured ranking improvement, though not a complete fix (2 of 5 results
-  remain off-domain, limited by how semantically similar the two domains' abstracts are to the
-  embedding model itself).
+- **Known failure mode, and a live, answer-level fix — not just a ranking shift.** The query
+  *"Which cathode materials show high oxygen reduction activity?"* is a documented Phase 5 failure
+  mode (RESULTS.md): it pulls off-domain battery-cathode papers under dense-only search. Run live
+  in the app for this document:
+
+  | Retrieval strategy | Generated answer | Verified? |
+  |---|---|---|
+  | Dense Only | **"FePO4"** — a battery cathode material, off-domain | ✅ (self-verification confirms it against its *own*, wrong, retrieved context — verification can only check internal consistency, not domain correctness, which is exactly why retrieval quality matters) |
+  | Hybrid (Dense + BM25 + NER) | **"Perovskite."** — the correct SOFC-domain cathode material class, sourced from the paper "Material Discovery and Design Principles for Stable, High Activity Perovskite Cathodes for Solid Oxide Fuel Cells" | ✅ |
+
+  ![Dense-only retrieval answering FePO4 for a cathode-materials question](assets/screenshot-dense-only-cathode-query.png)
+  ![Hybrid retrieval answering Perovskite for the identical question](assets/screenshot-hybrid-cathode-query.png)
+
+  This is the same underlying case as ADR-009's ranking analysis (the correct paper moved from
+  4th to 2nd–3rd place), captured here at the level that actually matters to a user: it changed
+  what answer they receive, not just where a document sits in an internal ranking. It is still not
+  a complete fix — the improvement is a measured ranking shift, not a guarantee, and a harder or
+  differently-phrased query could still retrieve the wrong domain.
 
 ### 7.3 Generation Quality
 
 | Query | Result |
 |---|---|
-| *"What is considered a major reason for anode degradation in Ni-YSZ SOFCs?"* | **"Ni coarsening"** — correct, matches the known source paper exactly |
+| *"What is considered a major reason for anode degradation in Ni-YSZ SOFCs?"* | **"Ni coarsening"** — correct, matches the known source paper exactly, self-verified ✅ |
 | *"Who won the Super Bowl last year?"* | **"I don't know based on the given context."** — guardrail correctly refuses an off-domain question |
+
+![Hybrid retrieval answer with verification badge and expandable sources](assets/screenshot-hybrid-answer.png)
+![Expanded source card showing the retrieved passage and its arXiv link](assets/screenshot-sources-expanded.png)
 
 ### 7.4 Engineering Quality
 

@@ -85,12 +85,32 @@ Streamlit UI         ──►  answer + ✅/⚠️ badge + source papers
 | Metric | Result |
 |---|---|
 | MatSciBERT NER F1 | **Higher than BERT baseline** (see [RESULTS.md](RESULTS.md)) |
-| RAG retrieval hit-rate (10 questions) | **100% — correct paper in top-5 every time** |
+| RAG retrieval hit-rate (20 questions) | **100% — correct paper in top-5 every time** |
 | Flan-T5 guardrails | Refuses off-topic questions ("Who won the Super Bowl?") |
 | Phase 8 live test — anode degradation query | ✅ **"Ni coarsening is considered a major reason..."** |
 | Phase 8 live test — vague electrolyte query | ✅ **"I don't know based on the given context"** (correct refusal) |
 
 Full benchmark data → **[RESULTS.md](RESULTS.md)**
+
+---
+
+## 🖼️ Screenshots
+
+**Anode-degradation query, Hybrid retrieval — grounded answer, self-verified, with expandable sources:**
+
+![Hybrid retrieval answer with verification badge](docs/assets/screenshot-hybrid-answer.png)
+
+![Expanded source cards showing retrieved passages and arXiv links](docs/assets/screenshot-sources-expanded.png)
+
+**The same query, two retrieval strategies — this is the Phase 8 hybrid-retrieval improvement (ADR-009) actually happening live, not just measured in the background:**
+
+*"Which cathode materials show high oxygen reduction activity?" under* **Dense Only** *— the known failure mode (RESULTS.md, Phase 5): retrieval pulls an off-domain battery-cathode paper, and the model answers from it:*
+
+![Dense-only retrieval answering FePO4 — an off-domain battery cathode material](docs/assets/screenshot-dense-only-cathode-query.png)
+
+*The identical question under* **Hybrid (Dense + BM25 + NER)** *— retrieval now surfaces the genuinely relevant SOFC paper, and the answer changes accordingly:*
+
+![Hybrid retrieval answering Perovskite — the correct SOFC-domain cathode material](docs/assets/screenshot-hybrid-cathode-query.png)
 
 ---
 
