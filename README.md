@@ -1,8 +1,16 @@
 # 🔬 MatSci-RAG: Domain-Specific RAG for Materials Science
 
+[![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)](.python-version)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9)](https://docs.astral.sh/uv/)
+[![Linted with ruff](https://img.shields.io/badge/linted-ruff-261230)](https://docs.astral.sh/ruff/)
+[![CI](https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml)
+
 A complete, end-to-end Retrieval-Augmented Generation (RAG) system built for Materials Science literature, focusing on Solid Oxide Fuel Cells (SOFCs).
 
 It demonstrates how to upgrade a "generic" RAG pipeline into a **Domain-Specific NER-RAG** system using a custom-trained MatSciBERT model to extract material entities and use them to intelligently search a literature corpus.
+
+**Contents:** [Status](#-project-status-v100--complete) · [Setup & Run](#-setup--run) · [Architecture](#-architecture) · [Key Results](#-key-results) · [Screenshots](#-screenshots) · [Project Structure](#-project-structure) · [Documentation](#-documentation)
 
 ---
 
@@ -18,7 +26,7 @@ All 9 phases (0–8) are implemented, tested, and committed.
 | 3 | NER inference: structured facts extracted from 400 papers | ✅ |
 | 4 | Vector indexing: 1,330 chunks embedded into ChromaDB | ✅ |
 | 5 | RAG generation: grounded answers via `google/flan-t5-base` | ✅ |
-| 6 | Evaluation: retrieval hit-rate measured on 10 test questions | ✅ |
+| 6 | Evaluation: retrieval hit-rate measured on 20 test questions | ✅ |
 | 7 | Streamlit UI + GitHub Actions CI | ✅ |
 | 8 | Hybrid retrieval (BM25), self-verification, uncertainty abstention | ✅ |
 
@@ -54,29 +62,67 @@ always run; the 10 that depend on local data/model artifacts skip cleanly instea
 
 ## 🏗️ Architecture
 
+The system has two halves that run at different times: an **offline indexing pipeline** (run once,
+whenever the corpus changes) and a **live query pipeline** (run on every question). Both use the
+same NER facts, extracted once in Phase 3.
+
+### Offline: Corpus → NER Facts → Vector Index
+
+```mermaid
+flowchart LR
+    SOFCEXP[("SOFC-Exp<br/>876 labeled sentences")] --> TRAIN["Fine-tune NER<br/>MatSciBERT vs BERT-base"]
+    ARXIV["arXiv corpus<br/>400 SOFC abstracts"] --> INFER["Run trained NER model"]
+    TRAIN -->|"MatSciBERT wins<br/>F1 0.0915 vs 0.0816"| INFER
+    INFER --> FACTS["structured_facts.jsonl<br/>materials · devices · experiments"]
+    ARXIV --> CHUNK["Chunk text<br/>500 chars / 50 overlap"]
+    FACTS -->|"joined as<br/>chunk metadata"| CHUNK
+    CHUNK --> EMBED["Embed<br/>BAAI/bge-small-en-v1.5"]
+    EMBED --> CHROMA[("ChromaDB<br/>1,330 vectors")]
+
+    style TRAIN fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+    style CHROMA fill:#eff6ff,stroke:#3b82f6,color:#1e293b
 ```
-Query
-  │
-  ▼
-Hybrid Retrieval  ──►  BM25 keyword match (exact terms)
-  │               ──►  Dense vector search (ChromaDB / BGE-small-en)
-  │               ──►  Fused via Reciprocal Rank Fusion, boosted by
-  │                     NER entity overlap with the query (ADR-009)
-  │
-  ▼
-detect_ambiguity()   ──►  abstain if an unusually large number of
-                            distinct materials are found (rarely fires —
-                            see ADR-009 on current NER precision limits)
-  │
-  ▼
-Flan-T5-base         ──►  grounded answer from retrieved context only
-  │
-  ▼
-verify_answer()      ──►  second LLM call: "does context support the answer?"
-  │
-  ▼
-Streamlit UI         ──►  answer + ✅/⚠️ badge + source papers
+
+### Live: Question → Grounded, Verified Answer
+
+```mermaid
+flowchart TB
+    Q["User question"] --> H["hybrid_retrieve()<br/>see zoom-in below"]
+    CHROMA2[("ChromaDB")] --> H
+    H --> AMB{"detect_ambiguity()<br/>too many distinct<br/>materials in results?"}
+    AMB -->|"rare — see ADR-009<br/>on NER precision limits"| ABST["Abstain:<br/>ask user to narrow"]
+    AMB -->|"usual case"| PROMPT["build_prompt()<br/>context-only instruction"]
+    PROMPT --> GEN["Flan-T5-base<br/>generate()"]
+    GEN --> VER["verify_answer()<br/>2nd LLM call:<br/>'does context support this?'"]
+    VER --> UI["Streamlit UI<br/>answer + ✅/⚠️ badge + sources"]
+    ABST --> UI
+
+    style AMB fill:#fef3c7,stroke:#d97706,color:#451a03
+    style UI fill:#f0fdf4,stroke:#22c55e,color:#052e16
 ```
+
+### Zoom-in: `hybrid_retrieve()` — Why It's NER-*Aware*, Not NER-*Gated*
+
+An earlier version hard-filtered dense search to papers whose NER tags matched certain keywords —
+which sounds reasonable until you check the data: 68% of papers have no extracted `devices` field
+at all, so a hard filter would silently discard most of the corpus on every query. ADR-009 replaced
+it with a **soft boost** that can improve ranking but never zero out results:
+
+```mermaid
+flowchart LR
+    Q["Query"] --> D["Dense search<br/>BGE-small, pool = k×4"]
+    Q --> B["BM25 search<br/>keyword, pool = k×4"]
+    D --> RRF["Reciprocal Rank Fusion<br/>score = Σ 1/(60 + rank)"]
+    B --> RRF
+    FACTS2["Per-paper NER facts"] -->|"+0.02 per cleaned entity<br/>mentioned in the query"| RRF
+    RRF --> SORT["Sort + dedupe<br/>by paper_id + chunk"]
+    SORT --> TOPK["Top-k results"]
+
+    style RRF fill:#fff7ed,stroke:#f97316,color:#431407
+```
+
+*Full derivation, the `$contains`-operator bug it replaced, and the 68%-empty-field evidence are in*
+*[ADR-009](docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md).*
 
 ---
 
@@ -159,6 +205,7 @@ MatSci-RAG/
 
 ## 📝 Documentation
 
+- **[docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md)** — full project review: problem statement, literature review, research gap, methodology, and results, written for a mentor/committee audience
 - **[RESULTS.md](RESULTS.md)** — NER F1, retrieval hit-rates, live test output, and bug table
 - **[docs/ADRs/](docs/ADRs/)** — 9 Architecture Decision Records (every major technical choice)
 - **[docs/sample_questions.md](docs/sample_questions.md)** — Ready-to-paste demo questions for the UI
