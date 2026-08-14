@@ -15,7 +15,7 @@ with st.sidebar:
     st.markdown("**Retrieval Strategy**")
     retrieval_choice = st.radio(
         "Choose strategy",
-        ["Hybrid (Dense + BM25 + NER)", "Dense Only (Phase 5)"],
+        ["Hybrid (Dense + BM25 + NER)", "Dense Only"],
         index=0,
         label_visibility="collapsed",
     )
