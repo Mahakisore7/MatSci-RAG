@@ -22,6 +22,10 @@ with st.sidebar:
     use_hybrid = retrieval_choice == "Hybrid (Dense + BM25 + NER)"
 
     st.markdown("---")
+    if st.button("New Chat", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
     st.markdown("### System Architecture")
     st.markdown("- **Corpus:** 400 SOFC papers")
     st.markdown("- **Embedding:** `BAAI/bge-small-en-v1.5`")
@@ -56,7 +60,9 @@ if query := st.chat_input("Ask a question about SOFCs..."):
     # Display assistant response
     with st.chat_message("assistant"):
         with st.spinner("Searching literature and generating answer..."):
-            answer, retrieved = answer_query(query, use_hybrid=use_hybrid)
+            answer, retrieved = answer_query(
+                query, use_hybrid=use_hybrid, chat_history=st.session_state.messages[:-1]
+            )
 
         st.markdown(f"**{answer}**")
 
