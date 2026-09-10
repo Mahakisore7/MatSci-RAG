@@ -67,7 +67,7 @@ def get_llm():
     return _gen_model, _gen_tokenizer, _device
 
 
-def build_prompt(query: str, retrieved_docs: list) -> str:
+def build_prompt(query: str, retrieved_docs: list, chat_history: list = None) -> str:
     # Build context string
     context_parts = []
     for i, doc in enumerate(retrieved_docs, 1):
@@ -76,6 +76,16 @@ def build_prompt(query: str, retrieved_docs: list) -> str:
         context_parts.append(f"[{i}] {title}\n{text}")
 
     context = "\n\n".join(context_parts)
+
+    history_str = ""
+    if chat_history:
+        history_str = "Recent Conversation History:\n"
+        # Take last 6 messages (3 turns) to avoid context overflow
+        recent_history = chat_history[-6:]
+        for msg in recent_history:
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history_str += f"{role}: {msg['content']}\n"
+        history_str += "\n"
 
     system_instruction = (
         "You are an expert materials science AI assistant"
@@ -88,7 +98,7 @@ def build_prompt(query: str, retrieved_docs: list) -> str:
         " 'I don't know based on the provided context.' "
         "Do not hallucinate or use outside knowledge.\n\n"
     )
-    return system_instruction + f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+    return system_instruction + f"Context:\n{context}\n\n{history_str}Question: {query}\nAnswer:"
 
 
 def retrieve(query: str, k: int = 5) -> list:
@@ -113,7 +123,9 @@ def retrieve(query: str, k: int = 5) -> list:
 _structured_facts = facts_by_paper_id(load_structured_facts())
 
 
-def answer_query(query: str, use_hybrid: bool = True) -> tuple[str, list]:
+def answer_query(
+    query: str, use_hybrid: bool = True, chat_history: list = None
+) -> tuple[str, list]:
     """Retrieves context and generates a grounded answer."""
     log.info(f"Retrieving context for query: {query}")
 
@@ -136,7 +148,7 @@ def answer_query(query: str, use_hybrid: bool = True) -> tuple[str, list]:
         log.info("Ambiguity detected, abstaining from answering.")
         return msg, retrieved_docs
 
-    prompt = build_prompt(query, retrieved_docs)
+    prompt = build_prompt(query, retrieved_docs, chat_history)
 
     model, tokenizer, device = get_llm()
 
