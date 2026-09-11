@@ -29,6 +29,7 @@ Each ADR follows this standard structure:
 | [ADR-007](ADR-007-streamlit-ui-filewatcher-fix.md) | Streamlit for UI and `fileWatcherType=none` for Windows Compatibility | Accepted |
 | [ADR-008](ADR-008-phase8-bugfixes-import-order-double-import.md) | Phase 8 Bug Fixes — Import Order, Double Import | Accepted (NER filter section superseded by ADR-009) |
 | [ADR-009](ADR-009-ner-aware-retrieval-reranking.md) | NER-Aware Retrieval Reranking (Replacing the Broken Metadata Filter) | Accepted |
+| [ADR-010](ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) | Multi-Turn Conversation Memory + LLM-Judge RAG Evaluation | Accepted |
 
 ## Naming Convention
 
