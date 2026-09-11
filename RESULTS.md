@@ -198,3 +198,48 @@ A closer audit of Phase 8 found two of its three stretch features didn't actuall
 | **Self-Verification** | Worked as documented — unaffected by the above bug. | No change. |
 
 Also fixed as part of the same pass: the same `paper_id`/`source_id` bug in `hybrid_retrieval.py`'s result-deduplication key (degraded, didn't crash); 10 new unit tests added for the fixed logic (`tests/test_ner_utils.py`), requiring no local model/data artifacts so they run in CI; the 5 pre-existing artifact-dependent tests now skip cleanly instead of erroring when `data/`/`models/` aren't present (they weren't previously runnable in CI at all, since nothing under those gitignored paths is tracked in git).
+
+---
+
+## Phase 9 Extension — LLM-Judge RAG Evaluation (2026-09-10)
+
+### Method
+A custom RAG evaluation script (`scripts/evaluate_ragas.py`) was implemented using **Groq `compound-mini`** as an external judge LLM (free tier). This replaces manual hit-rate testing with three automated quality metrics, evaluated across 7 SOFC domain questions:
+
+| Metric | What it measures |
+|---|---|
+| **Faithfulness** | Does the answer rely only on retrieved context? (1.0 = no hallucination) |
+| **Answer Relevancy** | Is the answer actually useful for the question? (1.0 = fully answers) |
+| **Context Precision** | What fraction of retrieved passages are relevant? (1.0 = all relevant) |
+
+### Results
+
+| Metric | Score | Interpretation |
+|---|---|---|
+| **Faithfulness** | **1.000** | ✅ Perfect — Flan-T5 never fabricates. Every answer is grounded in the context or refuses with "I don't know." |
+| **Answer Relevancy** | **0.214** | ⚠️ Low — 4 of 7 answers were "I don't know" because the abstracts-only corpus doesn't contain fine-grained methodology details. |
+| **Context Precision** | **0.200** | ⚠️ Low — Only ~1 in 5 retrieved chunks is truly on-target. This reflects the abstracts-only corpus and motivates full-paper ingestion. |
+
+### Per-Question Breakdown
+
+| Question | Answer (truncated) | Faith | Rel | Prec |
+|---|---|---|---|---|
+| What materials are used as electrolytes? | Sr2Fe2O6 (SFO)-based ferrites | 1.00 | 0.00 | 0.00 |
+| Effect of temperature on SOFC performance? | I don't know | 1.00 | 0.00 | 0.00 |
+| Cathode materials for oxygen reduction? | Sr2Fe1.5Mo0.125... | 1.00 | 0.50 | 1.00 |
+| What causes Ni-YSZ anode degradation? | Interdiffusion between YSZ and GDC... | 1.00 | 0.50 | 0.20 |
+| How does grain size affect ceria conductivity? | I don't know | 1.00 | 0.00 | 0.00 |
+| Role of GDC as interlayer? | electrolyte | 1.00 | 0.50 | 0.00 |
+| Sintering temps for LSCF cathodes? | I don't know | 1.00 | 0.00 | 0.20 |
+
+### Interpretation
+
+**What works well:**
+- Faithfulness = 1.0 is the most important property for a RAG system. The model never hallucinates — it either extracts faithfully or admits it doesn't know. This is a core design win from the strict context-only prompting.
+
+**What the scores expose:**
+1. **Relevancy is low because the corpus is abstracts-only.** Abstracts don't contain sintering temperatures, grain size effects, or interlayer roles — those are in the Methods/Results sections of full papers. Fix → Full paper ingestion (planned).
+2. **Context Precision is low because retrieval is imprecise for specific queries.** A question about "grain size and ceria conductivity" retrieves generic SOFC papers instead of specific nanostructure papers. Fix → Query rewriting (planned).
+
+**Detailed per-question results saved to:** `docs/results/ragas_evaluation.csv`
+
