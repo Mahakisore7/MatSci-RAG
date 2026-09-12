@@ -124,17 +124,23 @@ _structured_facts = facts_by_paper_id(load_structured_facts())
 
 
 def answer_query(
-    query: str, use_hybrid: bool = True, chat_history: list = None
+    query: str, use_hybrid: bool = True, chat_history: list = None, expand_q: bool = False
 ) -> tuple[str, list]:
     """Retrieves context and generates a grounded answer."""
     log.info(f"Retrieving context for query: {query}")
 
+    search_query = query
+    if expand_q:
+        from src.rag.query_expansion import expand_query
+
+        search_query = expand_query(query, chat_history)
+
     if use_hybrid:
         from src.rag.hybrid_retrieval import hybrid_retrieve
 
-        retrieved_docs = hybrid_retrieve(query, k=5, use_ner_boost=True)
+        retrieved_docs = hybrid_retrieve(search_query, k=5, use_ner_boost=True)
     else:
-        bge_query = BGE_QUERY_PREFIX + query
+        bge_query = BGE_QUERY_PREFIX + search_query
         retrieved_docs = retriever.invoke(bge_query)
 
     # Check for ambiguity before generating an answer

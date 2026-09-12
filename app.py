@@ -22,6 +22,10 @@ with st.sidebar:
     use_hybrid = retrieval_choice == "Hybrid (Dense + BM25 + NER)"
 
     st.markdown("---")
+    st.markdown("**Query Processing**")
+    use_expansion = st.checkbox("Enable LLM Query Expansion", value=False)
+
+    st.markdown("---")
     if st.button("New Chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
@@ -61,7 +65,10 @@ if query := st.chat_input("Ask a question about SOFCs..."):
     with st.chat_message("assistant"):
         with st.spinner("Searching literature and generating answer..."):
             answer, retrieved = answer_query(
-                query, use_hybrid=use_hybrid, chat_history=st.session_state.messages[:-1]
+                query,
+                use_hybrid=use_hybrid,
+                chat_history=st.session_state.messages[:-1],
+                expand_q=use_expansion,
             )
 
         st.markdown(f"**{answer}**")
