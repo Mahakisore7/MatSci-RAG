@@ -251,7 +251,7 @@ fig_pie = px.pie(
     color_discrete_sequence=px.colors.qualitative.Set2,
     title="Extracted NER entities by type (noise-filtered)",
 )
-st.plotly_chart(fig_pie, use_container_width=True)
+st.plotly_chart(fig_pie, width="stretch")
 
 # Top material tokens
 if all_materials:
@@ -265,7 +265,7 @@ if all_materials:
         color_discrete_sequence=["#6366f1"],
         title="Top 20 material tokens (after noise filtering)",
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width="stretch")
 
 # Top device tokens
 if all_devices:
@@ -279,7 +279,7 @@ if all_devices:
         color_discrete_sequence=["#10b981"],
         title="Top 15 device tokens",
     )
-    st.plotly_chart(fig_dev, use_container_width=True)
+    st.plotly_chart(fig_dev, width="stretch")
 
 st.markdown("---")
 
@@ -340,7 +340,7 @@ if ragas_df is not None:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             height=500,
         )
-        st.plotly_chart(fig_scores, use_container_width=True)
+        st.plotly_chart(fig_scores, width="stretch")
 
     # Detailed table
     st.subheader("Detailed Results Table")
@@ -349,7 +349,7 @@ if ragas_df is not None:
     ].copy()
     display_df.columns = ["Question", "Answer", "Faithfulness", "Relevancy", "Precision"]
     display_df["Answer"] = display_df["Answer"].str[:80] + "..."
-    st.dataframe(display_df, use_container_width=True)
+    st.dataframe(display_df, width="stretch")
 
     st.info(
         "**Faithfulness = 1.0** is the core design goal — the model never fabricates. "
