@@ -1,9 +1,9 @@
 import json
 import os
+import tempfile
 
 import networkx as nx
 import streamlit as st
-import streamlit.components.v1 as components
 from pyvis.network import Network
 
 # pyrefly: ignore [missing-import]
@@ -92,13 +92,18 @@ def build_networkx_graph(data, max_papers=None, target_paper=None, target_entity
 
 
 def render_pyvis(G, physics=True):
-    """Converts NetworkX to PyVis and renders HTML."""
+    """Converts NetworkX to PyVis and renders HTML.
+
+    Uses cdn_resources='remote' so pyvis does NOT generate a local lib/
+    folder. Uses Python's tempfile so no workspace artifact is left behind.
+    """
     net = Network(
         height="700px",
         width="100%",
         bgcolor="#0e1117",  # Match Streamlit dark mode
         font_color="white",
         notebook=False,
+        cdn_resources="remote",  # Load vis.js from CDN, no local lib/
     )
 
     # Configure physics for better layout, or turn it off for massive graphs
@@ -109,13 +114,15 @@ def render_pyvis(G, physics=True):
 
     net.from_nx(G)
 
-    # Save to a temporary HTML file then load it back as string
-    tmp_path = "data/tmp_graph.html"
-    os.makedirs("data", exist_ok=True)
+    # Write to a proper OS temp file, read it back, then delete immediately
+    with tempfile.NamedTemporaryFile(
+        suffix=".html", delete=False, mode="w", encoding="utf-8"
+    ) as f:
+        tmp_path = f.name
     net.write_html(tmp_path)
-
     with open(tmp_path, encoding="utf-8") as f:
         html_string = f.read()
+    os.unlink(tmp_path)  # Clean up immediately — no leftover artifacts
 
     return html_string
 
@@ -190,4 +197,4 @@ with st.spinner("Building Graph..."):
         # Render HTML
         st.markdown(f"**Nodes:** {G.number_of_nodes()} | **Edges:** {G.number_of_edges()}")
         html = render_pyvis(G, physics=enable_physics)
-        components.html(html, height=715, scrolling=False)
+        st.iframe(html, height=715, scrolling=False)
