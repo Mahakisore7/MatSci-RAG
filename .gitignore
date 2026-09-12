@@ -5,9 +5,14 @@ __pycache__/
 data/*.jsonl
 data/matscholar_processed/
 data/ner_processed/
-data/sofc_  exp_repo/
+data/SOFC-Exp/
+data/sofc_exp_repo/
 data/structured_facts.jsonl
 data/sofc_corpus.jsonl
+data/pdfs/
+data/full_papers.jsonl
+data/tmp_graph.html
+lib/
 models/
 *.index
 
