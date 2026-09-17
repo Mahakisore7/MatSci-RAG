@@ -10,13 +10,14 @@ A complete, end-to-end Retrieval-Augmented Generation (RAG) system built for Mat
 
 It demonstrates how to upgrade a "generic" RAG pipeline into a **Domain-Specific NER-RAG** system using a custom-trained MatSciBERT model to extract material entities and use them to intelligently search a literature corpus.
 
-**Contents:** [Status](#-project-status-v100--complete) · [Setup & Run](#-setup--run) · [Architecture](#-architecture) · [Key Results](#-key-results) · [Screenshots](#-screenshots) · [Project Structure](#-project-structure) · [Documentation](#-documentation)
+**Contents:** [Status](#-project-status) · [Setup & Run](#-setup--run) · [Architecture](#-architecture) · [Key Results](#-key-results) · [Screenshots](#-screenshots) · [Project Structure](#-project-structure) · [Documentation](#-documentation)
 
 ---
 
-## 🚀 Project Status: v1.0.0 — Complete
+## 🚀 Project Status
 
-All 9 phases (0–8) are implemented, tested, and committed.
+All 9 core phases (0–8) are complete, plus a Phase 9 extension pass adding six further
+capabilities on top — see both tables below.
 
 | Phase | What Was Built | Status |
 |---|---|---|
@@ -29,6 +30,17 @@ All 9 phases (0–8) are implemented, tested, and committed.
 | 6 | Evaluation: retrieval hit-rate measured on 20 test questions | ✅ |
 | 7 | Streamlit UI + GitHub Actions CI | ✅ |
 | 8 | Hybrid retrieval (BM25), self-verification, uncertainty abstention | ✅ |
+
+### Phase 9 — Extensions
+
+| Extension | What It Adds | ADR |
+|---|---|---|
+| Multi-turn conversation memory | Follow-up questions resolve pronouns/context from the last 3 turns | [ADR-010](docs/ADRs/ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) |
+| LLM-judge RAG evaluation | Groq-scored Faithfulness / Answer Relevancy / Context Precision, replacing the RAGAS library (broken import across all compatible versions — see the ADR) | [ADR-010](docs/ADRs/ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) |
+| LLM-based query expansion | Optional pre-retrieval query rewriting via Groq; resolves pronouns using chat history, degrades to the raw query if no API key/on error | [ADR-011](docs/ADRs/ADR-011-llm-query-expansion.md) |
+| Full-paper ingestion | Download + section-parse full PDFs (not just abstracts) via `pypdf`, re-index with section-aware chunking | [ADR-012](docs/ADRs/ADR-012-full-paper-ingestion.md) |
+| Knowledge graph visualization | Interactive `pyvis`/`networkx` graph of papers ↔ extracted entities, 3 view modes | [ADR-013](docs/ADRs/ADR-013-knowledge-graph-visualization.md) |
+| Analytics dashboard | Corpus stats, NER entity distributions, RAG eval scores — a Streamlit page reading only pre-built artifacts | [ADR-010](docs/ADRs/ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) |
 
 ---
 
@@ -47,9 +59,12 @@ uv sync
 
 ### Run the Chat UI
 ```bash
-uv run streamlit run app.py
+uv run streamlit run src/ui/app.py
 ```
-Opens at `http://localhost:8501`. Use the sidebar to toggle between **Hybrid** (Phase 8) and **Dense Only** (Phase 5) retrieval.
+Opens at `http://localhost:8501`. The sidebar toggles between **Hybrid** and **Dense Only**
+retrieval and an optional **LLM Query Expansion** step, and has a **New Chat** button to reset
+conversation memory. The app is a Streamlit multipage app — the sidebar's page nav also has
+**Analytics** and **Knowledge Graph** pages (`src/ui/pages/`).
 
 ### Run Tests
 ```bash
@@ -87,11 +102,14 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    Q["User question"] --> H["hybrid_retrieve()<br/>see zoom-in below"]
+    Q["User question<br/>+ last 3 turns of chat history"] --> EXP{"Query expansion<br/>enabled? (ADR-011)"}
+    EXP -->|"yes"| GROQ["Groq LLM rewrites query<br/>(resolves pronouns from history)<br/>falls back to raw query on error"]
+    EXP -->|"no (default)"| H
+    GROQ --> H["hybrid_retrieve()<br/>see zoom-in below"]
     CHROMA2[("ChromaDB")] --> H
     H --> AMB{"detect_ambiguity()<br/>too many distinct<br/>materials in results?"}
     AMB -->|"rare — see ADR-009<br/>on NER precision limits"| ABST["Abstain:<br/>ask user to narrow"]
-    AMB -->|"usual case"| PROMPT["build_prompt()<br/>context-only instruction"]
+    AMB -->|"usual case"| PROMPT["build_prompt()<br/>context-only instruction<br/>+ chat history<br/>(original, unexpanded question)"]
     PROMPT --> GEN["Flan-T5-base<br/>generate()"]
     GEN --> VER["verify_answer()<br/>2nd LLM call:<br/>'does context support this?'"]
     VER --> UI["Streamlit UI<br/>answer + ✅/⚠️ badge + sources"]
@@ -99,7 +117,11 @@ flowchart TB
 
     style AMB fill:#fef3c7,stroke:#d97706,color:#451a03
     style UI fill:#f0fdf4,stroke:#22c55e,color:#052e16
+    style GROQ fill:#f5f3ff,stroke:#8b5cf6,color:#2e1065
 ```
+
+Query expansion only ever changes what's *searched for* — the unexpanded original question is
+still what gets sent to the generator, per [ADR-011](docs/ADRs/ADR-011-llm-query-expansion.md).
 
 ### Zoom-in: `hybrid_retrieve()` — Why It's NER-*Aware*, Not NER-*Gated*
 
@@ -164,35 +186,49 @@ Full benchmark data → **[RESULTS.md](RESULTS.md)**
 
 ```
 MatSci-RAG/
-├── app.py                          ← Streamlit chat UI (entry point)
 ├── src/
 │   ├── core/
 │   │   ├── config.py
 │   │   └── logging_config.py
 │   ├── ingestion/
-│   │   └── fetch_corpus.py
+│   │   ├── fetch_corpus.py
+│   │   ├── pdf_downloader.py       ← Phase 9: downloads full-paper PDFs from arXiv
+│   │   └── pdf_parser.py           ← Phase 9: pypdf extraction + section detection
 │   ├── ner/
-│   │   ├── prepare_ner_data.py
-│   │   ├── train_ner.py
-│   │   └── run_ner_inference.py
-│   └── rag/
-│       ├── build_index.py
-│       ├── rag_query.py            ← core pipeline + self-verification
-│       ├── ner_utils.py            ← shared NER cleaning, ambiguity check, RRF+boost reranking
-│       └── hybrid_retrieval.py     ← BM25 + dense, fused via ner_utils (Phase 8 / ADR-009)
+│   │   ├── prepare_data.py
+│   │   ├── train.py
+│   │   └── inference.py
+│   ├── rag/
+│   │   ├── build_index.py          ← --source abstract|full_paper (Phase 9)
+│   │   ├── rag_query.py            ← core pipeline: retrieval, generation, verification, memory
+│   │   ├── ner_utils.py            ← shared NER cleaning, ambiguity check, RRF+boost reranking
+│   │   ├── hybrid_retrieval.py     ← BM25 + dense, fused via ner_utils (Phase 8 / ADR-009)
+│   │   ├── query_expansion.py      ← Phase 9: Groq-based query rewriting (ADR-011)
+│   │   └── quick_retrieval_test.py
+│   └── ui/
+│       ├── app.py                  ← Streamlit chat UI (entry point)
+│       └── pages/
+│           ├── 1_Analytics.py      ← Phase 9: corpus/NER/eval-score dashboard
+│           └── 2_Knowledge_Graph.py ← Phase 9: pyvis paper↔entity graph (ADR-013)
 ├── scripts/
-│   ├── evaluate_rag.py
-│   ├── quick_retrieval_test.py
-│   └── verify_gpu.py
+│   ├── evaluate_rag.py             ← dense-retrieval hit-rate (Phase 6)
+│   ├── evaluate_ragas.py           ← Phase 9: Groq LLM-judge eval (ADR-010)
+│   ├── ingest_full_papers.py       ← Phase 9: download → parse → re-index orchestrator
+│   ├── quick_facts_analysis.py
+│   └── archive/                    ← superseded one-off scripts, kept for reference
 ├── tests/                          ← 20 pytest tests (10 pure unit tests always run in
 │                                      CI; 10 artifact-dependent ones skip cleanly without
 │                                      local data/models instead of erroring)
-├── data/                           ← gitignored (corpus, chroma_db, facts)
+├── data/                           ← gitignored (corpus, chroma_db, facts, pdfs)
 ├── models/                         ← gitignored (fine-tuned weights ~400MB)
 ├── docs/
-│   ├── ADRs/                       ← 9 Architecture Decision Records
+│   ├── MatSci-RAG-Review.md        ← formal project review (problem/lit review/methodology/results)
+│   ├── Project-Explainer.md        ← glossary + full flow + mentor Q&A prep guide
+│   ├── ADRs/                       ← 13 Architecture Decision Records
 │   ├── Phases/                     ← Step-by-step build guide (Phases 0–8)
-│   ├── results/                    ← Phase-level explanation docs
+│   ├── results/                    ← Phase-level explanation docs + RAGAS eval CSV
+│   ├── archive/                    ← base paper PDF + Zeroth Review document
+│   ├── assets/                     ← diagrams + UI screenshots
 │   └── sample_questions.md         ← Ready-to-paste demo questions
 ├── .streamlit/config.toml          ← Disables file watcher (Windows fix)
 ├── .github/workflows/ci.yml        ← Linting + smoke tests on every push
@@ -206,8 +242,10 @@ MatSci-RAG/
 ## 📝 Documentation
 
 - **[docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md)** — full project review: problem statement, literature review, research gap, methodology, and results, written for a mentor/committee audience
+- **[docs/Project-Explainer.md](docs/Project-Explainer.md)** — glossary of every term, the complete data/query flow, one fully-traced example, and anticipated mentor Q&A
 - **[RESULTS.md](RESULTS.md)** — NER F1, retrieval hit-rates, live test output, and bug table
-- **[docs/ADRs/](docs/ADRs/)** — 9 Architecture Decision Records (every major technical choice)
+- **[docs/ADRs/](docs/ADRs/)** — 13 Architecture Decision Records (every major technical choice)
+- **[docs/archive/](docs/archive/)** — the base paper (Maharana et al., 2025) and the formal Zeroth Review document this project is anchored on
 - **[docs/sample_questions.md](docs/sample_questions.md)** — Ready-to-paste demo questions for the UI
 
 ---
