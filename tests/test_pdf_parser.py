@@ -1,6 +1,7 @@
-"""Unit tests for src/ingestion/pdf_parser.py's section-detection logic.
+"""Unit tests for src/ingestion/pdf_parser.py's section-detection logic,
+and src/ingestion/pdf_downloader.py's arXiv-ID handling.
 
-detect_sections() is a pure function (string in, dict out) -- no PDF
+All of these are pure functions (string in, string/dict out) -- no PDF
 files or network access needed, so these always run in CI.
 """
 
@@ -9,6 +10,7 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from src.ingestion.pdf_downloader import arxiv_id_from_url, safe_filename  # noqa: E402
 from src.ingestion.pdf_parser import detect_sections  # noqa: E402
 
 SAMPLE_PAPER = """Some Paper Title
@@ -76,3 +78,26 @@ def test_detect_sections_merges_duplicate_headings():
     sections = detect_sections(text)
     assert "First results part" in sections["results"]
     assert "Second results part" in sections["results"]
+
+
+# ── arxiv_id_from_url / safe_filename ────────────────────────────────────────
+# Regression tests for a real bug: modern-style IDs have no '/' in the ID
+# itself, but old-style (pre-2007) IDs carry a category prefix that IS part
+# of the ID (e.g. 'physics/0609025v1') -- taking only the URL's last path
+# segment silently drops it, producing an ID the arXiv API rejects outright.
+
+
+def test_arxiv_id_from_url_modern_style():
+    assert arxiv_id_from_url("http://arxiv.org/abs/1801.06109v2") == "1801.06109v2"
+
+
+def test_arxiv_id_from_url_old_style_preserves_category_prefix():
+    assert arxiv_id_from_url("http://arxiv.org/abs/physics/0609025v1") == "physics/0609025v1"
+
+
+def test_safe_filename_flattens_old_style_slash():
+    assert safe_filename("physics/0609025v1") == "physics_0609025v1"
+
+
+def test_safe_filename_leaves_modern_style_unchanged():
+    assert safe_filename("1801.06109v2") == "1801.06109v2"

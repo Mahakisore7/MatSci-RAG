@@ -15,6 +15,7 @@ import os
 import time
 
 import arxiv
+import requests
 
 # pyrefly: ignore [missing-import]
 from src.core.logging_config import get_logger
@@ -46,8 +47,22 @@ def arxiv_id_from_url(url: str) -> str:
     """
     Extracts the arXiv ID from a full entry URL.
     e.g. 'http://arxiv.org/abs/1801.06109v2' -> '1801.06109v2'
+
+    Old-style (pre-2007) IDs carry a category prefix that's part of the ID
+    itself, not just a path segment -- taking only the last '/'-segment
+    silently drops it:
+    e.g. 'http://arxiv.org/abs/physics/0609025v1' -> 'physics/0609025v1'
+    (NOT '0609025v1' -- that's not a valid arXiv ID on its own and the API
+    rejects it with HTTP 400).
     """
-    return url.rstrip("/").split("/")[-1]
+    after_abs = url.rstrip("/").split("/abs/", 1)[-1]
+    return after_abs
+
+
+def safe_filename(arxiv_id: str) -> str:
+    """arxiv_id may contain '/' for old-style IDs (e.g. 'physics/0609025v1'),
+    which isn't valid in a filename -- flatten it for local storage."""
+    return arxiv_id.replace("/", "_")
 
 
 def download_pdfs(
@@ -76,7 +91,7 @@ def download_pdfs(
 
     for i, (paper_id, title) in enumerate(papers):
         arxiv_id = arxiv_id_from_url(paper_id)
-        pdf_path = os.path.join(pdf_dir, f"{arxiv_id}.pdf")
+        pdf_path = os.path.join(pdf_dir, f"{safe_filename(arxiv_id)}.pdf")
 
         # Idempotent: skip if already downloaded
         if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 1024:
@@ -96,7 +111,13 @@ def download_pdfs(
                 continue
 
             result = results[0]
-            result.download_pdf(dirpath=pdf_dir, filename=f"{arxiv_id}.pdf")
+            # arxiv.Result has no download_pdf() method in this installed
+            # version (4.0.0) -- it was silently failing every single
+            # download before this fix. Fetch result.pdf_url directly.
+            response = requests.get(result.pdf_url, timeout=30)
+            response.raise_for_status()
+            with open(pdf_path, "wb") as f:
+                f.write(response.content)
             downloaded += 1
             log.info(f"[{i+1}/{len(papers)}] Downloaded: {arxiv_id} — {title[:60]}")
 

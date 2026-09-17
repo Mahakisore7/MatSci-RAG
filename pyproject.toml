@@ -21,6 +21,7 @@ dependencies = [
     "python-dotenv",
     "pyvis>=0.3.2",
     "rank-bm25>=0.2.2",
+    "requests>=2.33.1",
     "scikit-learn",
     "sentence-transformers",
     "seqeval",

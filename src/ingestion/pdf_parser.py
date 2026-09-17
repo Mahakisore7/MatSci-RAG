@@ -210,7 +210,12 @@ def parse_all_pdfs(
 
     with open(output_path, "w", encoding="utf-8") as out:
         for i, filename in enumerate(pdf_files):
-            arxiv_id = filename.replace(".pdf", "")
+            safe_id = filename.replace(".pdf", "")
+            # pdf_downloader.py flattens old-style IDs' '/' to '_' for
+            # filesystem-safety (e.g. 'physics/0609025v1' -> saved as
+            # 'physics_0609025v1.pdf'). Undo that for matching against the
+            # corpus, which still has the real '/'-containing ID.
+            arxiv_id = safe_id.replace("_", "/", 1)
             pdf_path = os.path.join(pdf_dir, filename)
 
             # Reconstruct paper_id URL from arxiv_id
