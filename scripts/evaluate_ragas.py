@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 load_dotenv()
 
-from groq import Groq  # noqa: E402
+from groq import Groq, RateLimitError  # noqa: E402
 
 from src.rag.rag_query import answer_query  # noqa: E402
 
@@ -52,28 +52,41 @@ BENCHMARK_QUESTIONS = [
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 
-def groq_score(prompt: str) -> float:
-    """Send a scoring prompt to Groq; expect JSON back with key 'score' 0-1."""
-    try:
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=100,
-        )
-        raw = response.choices[0].message.content.strip()
-        # Try to extract a JSON score
-        match = re.search(r"\{.*?\}", raw, re.DOTALL)
-        if match:
-            return float(json.loads(match.group())["score"])
-        # Fallback: look for a bare number
-        num = re.search(r"\b(0(\.\d+)?|1(\.0+)?)\b", raw)
-        if num:
-            return float(num.group())
-        return 0.0
-    except Exception as e:
-        print(f"    [Groq error] {e}")
-        return 0.0
+def groq_score(prompt: str, retries: int = 3) -> float:
+    """Send a scoring prompt to Groq; expect JSON back with key 'score' 0-1.
+
+    Retries on rate-limit errors (with backoff) so a transient 429 on the
+    free tier records as a retried success, not a false 0.0 "unfaithful"
+    score -- conflating infrastructure failure with content quality would
+    silently corrupt the evaluation numbers.
+    """
+    for attempt in range(retries):
+        try:
+            response = client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=100,
+            )
+            raw = response.choices[0].message.content.strip()
+            # Try to extract a JSON score
+            match = re.search(r"\{.*?\}", raw, re.DOTALL)
+            if match:
+                return float(json.loads(match.group())["score"])
+            # Fallback: look for a bare number
+            num = re.search(r"\b(0(\.\d+)?|1(\.0+)?)\b", raw)
+            if num:
+                return float(num.group())
+            return 0.0
+        except RateLimitError as e:
+            wait = 5.0 * (attempt + 1)
+            print(f"    [Groq rate limit, retry {attempt + 1}/{retries} in {wait:.0f}s] {e}")
+            time.sleep(wait)
+        except Exception as e:
+            print(f"    [Groq error] {e}")
+            return 0.0
+    print("    [Groq error] rate-limited after all retries, scoring as 0.0")
+    return 0.0
 
 
 def score_faithfulness(question: str, answer: str, contexts: list[str]) -> float:
