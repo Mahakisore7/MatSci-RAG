@@ -173,6 +173,20 @@ def build_index(chunks: list[Document]) -> Chroma:
     log.info(f"Building ChromaDB collection '{COLLECTION_NAME}' at {CHROMA_DIR} ...")
     os.makedirs(CHROMA_DIR, exist_ok=True)
 
+    # Chroma.from_documents() get-or-creates the collection and ADDS to it —
+    # it does not clear existing vectors. Delete first so re-running this
+    # (e.g. --source full_paper over an existing abstract-based index) is a
+    # true replace, not a silent merge of both chunk sets into one collection.
+    try:
+        Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=embeddings,
+            persist_directory=CHROMA_DIR,
+        ).delete_collection()
+        log.info(f"Deleted existing '{COLLECTION_NAME}' collection for a clean rebuild.")
+    except Exception as e:
+        log.debug(f"No existing collection to delete ({e}) — proceeding with fresh build.")
+
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
