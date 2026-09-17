@@ -1,0 +1,9 @@
+question,answer,faithfulness,answer_relevancy,context_precision
+What materials are used as electrolytes in solid oxide fuel cells?,I don't know based on the given context.,1.0,0.0,0.2
+What is the effect of temperature on SOFC performance?,I don't know based on the given context.,1.0,0.0,0.4
+Which cathode materials show high oxygen reduction activity in SOFCs?,I don't know based on the given context.,1.0,0.0,0.6
+What causes anode degradation in Ni-YSZ SOFCs?,I don't know based on the provided context.,1.0,0.0,0.8
+How does grain size affect the ionic conductivity of ceria?,ion/electron/hole fluxes flow along the opposite directions in SOFC but along the same direction in SOEC5.,1.0,0.0,0.2
+What is the role of GDC as an interlayer in SOFC cathodes?,"Y2O3 or ZrO2), then the cathode + electrolyte system is stable.",1.0,0.0,0.2
+What sintering temperatures are typically used for LSCF cathodes?,Lo west ASR in the whole temperature range,1.0,0.0,0.4
+AVERAGE,,1.0,0.0,0.4

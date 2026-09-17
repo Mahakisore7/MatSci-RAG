@@ -243,3 +243,128 @@ A custom RAG evaluation script (`scripts/evaluate_ragas.py`) was implemented usi
 
 **Detailed per-question results saved to:** `docs/results/ragas_evaluation.csv`
 
+---
+
+## Phase 9 Follow-up: Testing the Two Fixes This Evaluation Motivated (2026-09-17)
+
+The Phase 9 evaluation above ended with two specific, testable hypotheses — "Fix → Query rewriting
+(planned)" and "Fix → Full paper ingestion (planned)." Both were subsequently built (ADR-011,
+ADR-012), but neither had actually been re-evaluated to confirm they helped. This section closes
+that loop with real before/after numbers using the same `scripts/evaluate_ragas.py` harness
+(`--expand` flag added for this comparison).
+
+### Bugs Found Making This Measurement Possible at All
+
+Neither comparison below could be run before three real, verified bugs were fixed — worth recording
+because they explain why "built" and "measured" turned out to be very different claims for full-paper
+ingestion specifically:
+
+1. **`build_index()` didn't actually replace the ChromaDB collection.** `Chroma.from_documents()`
+   get-or-creates a collection by name and only adds to it; verified in isolation that building twice
+   left both batches of vectors present. Would have silently merged abstract and full-paper chunks
+   into one collection instead of replacing them. Fixed by explicitly deleting the collection first.
+2. **`scripts/ingest_full_papers.py` couldn't run at all**, following its own documented usage — direct
+   script invocation puts `scripts/` on `sys.path[0]`, not the project root, so `from src...` never
+   resolved. This alone explains why full-paper ingestion had zero evidence of ever having been run.
+3. **Every PDF download was silently failing.** `arxiv.Result.download_pdf()` doesn't exist in the
+   installed `arxiv==4.0.0` — 100% failure rate, always, for every paper. Fixed by fetching
+   `result.pdf_url` directly. Fixing this surfaced a second bug: old-style (pre-2007) arXiv IDs carry
+   a category prefix (`physics/0609025v1`) that a naive "last URL segment" extraction silently
+   dropped, producing an ID the arXiv API rejects outright.
+
+All three are fixed, tested, and committed (see git log). **The measurements below are the first time
+full-paper ingestion has ever actually run successfully.**
+
+### Query Expansion — Measured, Same Corpus (Abstracts-Only)
+
+| Metric | Baseline (no expansion) | With Query Expansion | Change |
+|---|---|---|---|
+| Faithfulness | 1.000 | 1.000 | — |
+| Answer Relevancy | 0.214 | **0.429** | **+0.215 (2x)** |
+| Context Precision | 0.200 | **0.257** | **+0.057** |
+
+**Query expansion measurably helps**, isolated from any corpus change. The clearest case:
+*"What causes anode degradation in Ni-YSZ SOFCs?"* went from a generic answer ("Interdiffusion
+between YSZ and GDC...") at Relevancy 0.50 to the precisely correct **"Ni coarsening"** at
+Relevancy 1.00 — the expanded query ("Ni-YSZ anode degradation mechanisms... carbon deposition
+sulfur poisoning thermal cycling redox cycling Ni particle coarsening...") surfaced the right
+paper by including a term ("coarsening") the original short question never used. Two questions
+still returned "I don't know" even with expansion (grain size/ceria conductivity; LSCF sintering
+temperatures) — expansion improves what gets searched for, but can't manufacture detail the
+abstracts-only corpus simply doesn't contain. That's exactly the second hypothesis, tested next.
+
+**Detailed per-question results:** `docs/results/ragas_evaluation_abstracts_expansion.csv`
+
+### Full-Paper Ingestion — Measured, on a 55-Paper Subset
+
+Ran on a **55-paper subset** (60 requested via `--max 60`; 5 failed to download — a mix of
+still-unfixed edge cases and transient network errors — not the full 400-paper corpus), chosen to
+validate the approach before committing to a full run. Index went from 1,330 abstract chunks (500
+chars each) to **3,516 section-level chunks** (800 chars each, spanning introduction/methods/
+results/discussion/conclusion) for just those 55 papers — full papers are substantially larger than
+their abstracts, as expected.
+
+| Metric | Baseline (abstracts, no expansion) | Full-Paper (no expansion) | Change |
+|---|---|---|---|
+| Faithfulness | 1.000 | **0.714** | **−0.286** |
+| Answer Relevancy | 0.214 | 0.286 | +0.072 |
+| Context Precision | 0.200 | **0.543** | **+0.343 (2.7x)** |
+
+**Context Precision improved substantially — the original hypothesis holds.** More granular,
+section-level indexing means retrieved chunks are far more topically focused than whole abstracts.
+
+**Faithfulness dropped — partly a measurement artifact, partly real.** One score (Q6) was recorded
+as 0.0 after the judge call exhausted all retries under Groq free-tier rate limiting on a longer
+full-paper-context prompt — an infrastructure effect on the number, not a genuine unfaithful answer
+(see the retry fix above; it reduces but doesn't eliminate this on the free tier under sustained
+load). Treat 0.714 as a noisy lower bound, not a precise value.
+
+**Detailed per-question results:** `docs/results/ragas_evaluation_fullpaper.csv`
+
+### Full-Paper Ingestion + Query Expansion Combined — A Real Negative Result
+
+The natural next question: do the two fixes compose? **No — combined, Answer Relevancy collapsed to
+0.000**, even though Context Precision still beat the original baseline:
+
+| Metric | Baseline | Expansion Only | Full-Paper Only | **Both Combined** |
+|---|---|---|---|---|
+| Faithfulness | 1.000 | 1.000 | 0.714 | 1.000 |
+| Answer Relevancy | 0.214 | 0.429 | 0.286 | **0.000** |
+| Context Precision | 0.200 | 0.257 | 0.543 | 0.400 |
+
+**Why, exactly — read from the actual answers, not guessed:** of 7 questions, 4 correctly returned
+"I don't know" (faithful, but correctly scored 0 relevancy — that's the rubric working as intended,
+not a bug). The other 3 produced **faithful but incoherent fragments** lifted verbatim from
+PDF-extracted text, e.g.:
+- *"Lo west ASR in the whole temperature range"* (a broken OCR/extraction artifact of "Lowest")
+- *"Y2O3 or ZrO2), then the cathode + electrolyte system is stable."* (starts mid-sentence, with a
+  stray closing parenthesis carried over from the source PDF's formatting)
+
+These score **Faithfulness 1.0** — the words are genuinely present in the retrieved context — but
+**Relevancy 0.0**, because a sentence fragment isn't a real answer. This is a real, previously
+undocumented limitation, not a defect in either individual feature: **Flan-T5-base (250M parameters)
+struggles to synthesize a coherent answer from longer, noisier, PDF-extraction-artifact-laden context
+— and query expansion's broader, keyword-rich rewritten queries make the retrieved pool larger and
+noisier still**, compounding the problem rather than fixing it. Each fix helps in isolation
+(Context Precision improves in every single row above the baseline); they do not simply add together.
+
+**A sharper limit on what "Faithfulness" measures, worth having ready for a mentor:** a metric that
+only checks "is this literally supported by the context" cannot distinguish a real answer from a
+broken sentence fragment that happens to be quoted correctly. Coherence and correctness are not the
+same property as faithfulness, and this evaluation is the concrete case that makes that visible
+rather than theoretical.
+
+**Detailed per-question results:** `docs/results/ragas_evaluation_fullpaper_expansion.csv`
+
+### What This Means, Honestly
+
+- Full-paper ingestion's core hypothesis (better Context Precision) is confirmed, on a 55-paper
+  subset. Query expansion's core hypothesis (better Relevancy) is also confirmed, independently.
+- **Scaling full-paper ingestion to all 400 papers and defaulting query expansion on are two
+  separate decisions, not one** — the data above is a reason to consider a larger generation model
+  (Flan-T5-base is very likely the bottleneck, not the retrieval improvements) before combining both
+  by default, rather than a reason to abandon either.
+- This is exactly the kind of result worth leading with in a review, not hiding: two features that
+  each measurably work, that don't simply compose — found, measured, and explained with the actual
+  data, not asserted from the hypothesis alone.
+

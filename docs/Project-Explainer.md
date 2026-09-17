@@ -441,9 +441,26 @@ tradeoff of evaluation/retrieval quality against the "everything runs locally fo
 rest of the project has.
 
 **Q: Have you actually confirmed full-paper ingestion and query expansion help, or is that just the hypothesis?**
-[Fill this in with your own measured before/after numbers once you've run the comparison — see
-Section 6, item 6, and RESULTS.md's Phase 9 evaluation section for the real numbers. Don't answer
-this one from the hypothesis alone if you have real data to cite instead.]
+Yes — measured, not assumed, on a 55-paper full-paper subset (`RESULTS.md`'s Phase 9 Follow-up
+section has the full data). Both help **independently**: query expansion roughly doubled Answer
+Relevancy (0.214 → 0.429) on the same abstracts-only corpus; full-paper ingestion nearly tripled
+Context Precision (0.200 → 0.543) on its own. The genuinely interesting finding — have this ready,
+it's a better answer than "yes, it all worked" — is that **combining both made Relevancy collapse to
+0.000**. Reading the actual generated answers (not just the scores) shows why: Flan-T5-base
+(250M params, small) produces faithful-but-incoherent sentence fragments when handed longer, noisier,
+PDF-extraction-artifact-laden context — and query expansion's broader rewritten queries make that
+retrieved pool larger and noisier still. Each fix works; they don't simply add together. That's a
+real, data-backed limit on Flan-T5-base's synthesis capacity, not a flaw in either individual
+feature — and it's a stronger, more credible answer than claiming everything improved.
+
+**Q: If faithfulness stayed at 1.0 even when the answers were garbled fragments, isn't your faithfulness metric broken?**
+No — it's doing exactly what it's specified to do (checking whether the answer's words are actually
+present in the retrieved context), and that's precisely the point worth making to a mentor: a
+faithfulness score can be perfect while an answer is still a useless, incoherent sentence fragment,
+because "faithful" and "coherent" are different properties. This project's own evaluation surfaced
+that distinction concretely rather than needing to argue it in the abstract — see RESULTS.md for
+the actual fragment examples (e.g. an answer that starts mid-sentence with a stray parenthesis
+carried over from the PDF).
 
 **Q: How does multi-turn memory work, and why cap it at 3 turns?**
 It's a simple rolling window, not a vector-store or summarization-based memory — the last 6 messages
@@ -480,11 +497,12 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 4. **Generation quality is capped by model size** — Flan-T5-base occasionally can't synthesize an
    answer across multiple retrieved passages even when the right material was retrieved.
 5. **Self-verification checks consistency, not correctness** — see Section 1.12's nuance.
-6. **Full-paper ingestion and query expansion were both built to test specific hypotheses about
-   improving retrieval — check RESULTS.md's Phase 9 evaluation section for whether the actual
-   before/after numbers confirmed them**, rather than assuming they did because the feature exists.
-   Shipping a feature and measuring its effect are two different claims — be precise about which one
-   you're making.
+6. **Full-paper ingestion and query expansion each help independently, but do not compose** —
+   measured, not assumed (`RESULTS.md`'s Phase 9 Follow-up section, and Section 5's Q&A above).
+   Combined, Answer Relevancy collapsed to 0.000 despite Context Precision still improving, because
+   Flan-T5-base produces faithful-but-incoherent fragments from full-paper text made noisier still by
+   expansion's broader queries. Shipping a feature and measuring its effect are different claims —
+   this project now has real numbers for both, including where they conflict.
 7. **The Phase 9 extensions have no automated test coverage** — unlike the core pipeline (which has
    10 pure-logic unit tests), query expansion's fallback behavior and the PDF section-detection logic
    were added without tests. (If you're reading this after that gap was closed, this item may be
