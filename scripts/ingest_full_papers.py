@@ -22,8 +22,15 @@ import argparse
 import os
 import sys
 
+# Must run before the `from src...` imports below: running this file
+# directly (rather than via `python -m scripts.ingest_full_papers`) puts
+# scripts/ on sys.path[0], not the project root, so `src` isn't
+# importable otherwise -- this bit anyone following this file's own
+# documented usage above.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 # pyrefly: ignore [missing-import]
-from src.core.logging_config import get_logger
+from src.core.logging_config import get_logger  # noqa: E402
 from src.ingestion.pdf_downloader import download_pdfs
 from src.ingestion.pdf_parser import parse_all_pdfs
 from src.rag.build_index import (
