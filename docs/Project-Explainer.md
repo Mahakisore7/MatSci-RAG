@@ -168,6 +168,49 @@ narrow it. Implemented by counting distinct materials (from the NER facts) acros
 papers. **Be ready to discuss why this rarely fires in practice** — it's a good, honest talking
 point, not something to hide (see Section 6).
 
+### 1.14 Query rewriting / query expansion
+
+A well-known RAG technique: instead of embedding the user's *literal* words, first have an LLM
+rewrite the question into a more search-friendly form — expanding abbreviations, adding domain
+synonyms, and (in a multi-turn chat) resolving pronouns like "it" or "they" using the conversation
+history, since a raw pronoun embeds to nothing useful. The rewritten query is used *only* for
+retrieval — the original question is still what the generator sees and answers, so a bad rewrite
+can hurt what gets retrieved but can't put words in the model's mouth. This project's version
+(`src/rag/query_expansion.py`) uses a small LLM via the **Groq API** and is opt-in, degrading to the
+original query unchanged if the API is unavailable.
+
+### 1.15 LLM-as-judge evaluation
+
+A way to score generated text automatically when there's no single "correct" answer string to
+diff against: ask a *separate* LLM to read the question, the answer, and the retrieved context, and
+score properties like "is this faithful to the context?" on a rubric. It's cheaper and faster than
+human evaluation, though only as reliable as the judge model itself — a real, honest caveat to have
+ready. This project originally planned to use **RAGAS**, a popular open-source library that
+implements exactly this pattern, but RAGAS's dependency chain turned out to be broken against this
+project's other libraries (see Section 3.3) — so a small custom judge was built instead, using the
+same *concepts* RAGAS is built on (Faithfulness, Answer Relevancy, Context Precision) without the
+library itself.
+
+### 1.16 Full-text vs. abstract-only corpora
+
+Everything through Phase 8 indexes only paper *abstracts* — a few sentences each. An abstract is a
+compressed summary; it often doesn't contain the fine-grained methodological detail (exact
+temperatures, specific dopant ratios, step-by-step procedures) that a detailed question is actually
+asking about. **Full-text ingestion** means downloading the actual PDF and indexing the paper's real
+sections (introduction, methods, results, etc.) instead — a much deeper but noisier and slower to
+build knowledge base. Worth knowing precisely: this changes what's *chunked* and *indexed*, not
+anything about retrieval or generation mechanics — the rest of the pipeline (Section 3.2) is
+unchanged either way.
+
+### 1.17 Knowledge graphs
+
+A **graph** representation of data as **nodes** (entities — here: papers and their extracted
+materials/devices) connected by **edges** (relationships — here: "paper mentions material"). Unlike
+a ranked list of search results, a graph view lets you see structure a plain query can't show: which
+materials cluster together across many papers, which papers are hubs connecting several
+technologies. This project renders one with **pyvis** (a Python wrapper that turns a `networkx`
+graph into an interactive, physics-simulated HTML visualization).
+
 ---
 
 ## 2. Project-Specific Vocabulary
@@ -178,15 +221,19 @@ point, not something to hide (see Section 6).
 | **`structured_facts.jsonl`** | The output of running the trained NER model on the corpus — one JSON record per paper, listing extracted materials/devices/experiments/values |
 | **`paper_id`** | The metadata key each indexed chunk is tagged with in ChromaDB (its source paper's arXiv URL) |
 | **`source_id`** | The equivalent field name inside `structured_facts.jsonl` records — same concept, different file's naming convention. (A real bug in this project came from code mixing these two names up — see Section 6.) |
-| **ADR (Architecture Decision Record)** | A short document explaining *why* a technical choice was made — this project has 9 of them, in `docs/ADRs/` |
-| **Phase** | This project was built in 9 sequential phases (0–8), each with its own deliverable — see Section 3 |
+| **ADR (Architecture Decision Record)** | A short document explaining *why* a technical choice was made — this project has 13 of them, in `docs/ADRs/` |
+| **Phase** | This project was built in 9 sequential core phases (0–8), plus a "Phase 9" extension pass adding six further capabilities on top — see Section 3 |
 | **`hybrid_retrieve()`** | The function that runs dense + BM25 search and fuses them (Section 1.6) |
 | **`detect_ambiguity()`** | The function implementing Section 1.13 |
 | **`verify_answer()`** | The function implementing Section 1.12 |
-| **`build_prompt()`** | Assembles the retrieved context + grounding instructions + question into the final prompt sent to Flan-T5 |
+| **`build_prompt()`** | Assembles the retrieved context + grounding instructions + chat history + question into the final prompt sent to Flan-T5 |
 | **`fuse_and_rerank()`** | The RRF + NER-boost logic (Section 1.6), lives in `src/rag/ner_utils.py` |
+| **`expand_query()`** | Implements Section 1.14 (query rewriting), lives in `src/rag/query_expansion.py` |
 | **ChromaDB collection `sofc_papers`** | The actual name of the vector index/table inside ChromaDB |
 | **`k`** | Standard retrieval shorthand for "how many results to return" (this project defaults to k=5) |
+| **Groq** | An LLM inference API this project uses for two Phase 9 features (query expansion, LLM-judge evaluation) — the one deliberate exception to the project's otherwise fully-local design, requiring a `GROQ_API_KEY` |
+| **`groq/compound-mini`** | The specific (free-tier) model used via Groq for both of the above |
+| **`src/ui/`** | Where the Streamlit app now lives (`app.py` + a `pages/` folder for the Analytics and Knowledge Graph pages) — it moved out of the repo root in a later restructure |
 
 ---
 
@@ -220,11 +267,14 @@ everything in ChromaDB. After this runs once, the index sits ready for any numbe
 
 ```mermaid
 flowchart TB
-    Q["User question"] --> H["hybrid_retrieve()"]
+    Q["User question<br/>+ chat history"] --> EXP{"Query expansion<br/>toggled on?"}
+    EXP -->|"yes"| GROQ["Groq rewrites the query<br/>(falls back to raw query<br/>on any error)"]
+    EXP -->|"no (default)"| H
+    GROQ --> H["hybrid_retrieve()"]
     CHROMA2[("ChromaDB")] --> H
     H --> AMB{"detect_ambiguity()"}
     AMB -->|"rare"| ABST["Abstain:<br/>ask user to narrow"]
-    AMB -->|"usual case"| PROMPT["build_prompt()"]
+    AMB -->|"usual case"| PROMPT["build_prompt()<br/>original (unexpanded) question"]
     PROMPT --> GEN["Flan-T5-base<br/>generate()"]
     GEN --> VER["verify_answer()"]
     VER --> UI["Streamlit UI"]
@@ -232,14 +282,36 @@ flowchart TB
 
     style AMB fill:#fef3c7,stroke:#d97706,color:#451a03
     style UI fill:#f0fdf4,stroke:#22c55e,color:#052e16
+    style GROQ fill:#f5f3ff,stroke:#8b5cf6,color:#2e1065
 ```
 
-**In words:** the question is embedded and searched against ChromaDB (dense) *and* tokenized and
-searched with BM25 (keyword), in parallel. Both ranked lists are fused (RRF) and boosted by NER
-entity overlap with the query. The system checks whether the retrieved evidence looks ambiguous; if
-not (the usual case), it builds a strict, context-only prompt and asks Flan-T5 to answer. That
-answer is then independently re-checked by asking the same model "does the context actually support
-this?" Finally the UI shows the answer, a ✅/⚠️ verification badge, and the source papers used.
+**In words:** if query expansion is on, an LLM first rewrites the question into a search-friendlier
+form using the last few turns of chat history (Section 1.14) — otherwise the raw question is used
+as-is. That (possibly rewritten) query is embedded and searched against ChromaDB (dense) *and*
+tokenized and searched with BM25 (keyword), in parallel. Both ranked lists are fused (RRF) and
+boosted by NER entity overlap. The system checks whether the retrieved evidence looks ambiguous; if
+not (the usual case), it builds a strict, context-only prompt — using the *original*, unexpanded
+question, plus recent chat history — and asks Flan-T5 to answer. That answer is then independently
+re-checked by asking the same model "does the context actually support this?" Finally the UI shows
+the answer, a ✅/⚠️ verification badge, and the source papers used.
+
+### 3.3 Phase 9: Six Extensions on Top of the Core Pipeline
+
+Everything above (Phases 0–8) was the original, complete project. A later "Phase 9" pass added six
+more capabilities without changing that core design — worth being able to name and place correctly:
+
+| Extension | What changed, concretely | Where it sits in the flow above |
+|---|---|---|
+| **Multi-turn memory** | `st.session_state.messages` accumulates the conversation; the last 3 turns are passed into both query expansion and `build_prompt()` | Feeds into 3.2's "User question + chat history" input |
+| **Query expansion** | `expand_query()` — Section 1.14 | The new decision diamond at the top of 3.2 |
+| **LLM-judge evaluation** | `scripts/evaluate_ragas.py` — a custom Groq-based scorer (Section 1.15), run *offline*, not part of the live query path | Not in the live flow at all — a separate evaluation script |
+| **Full-paper ingestion** | An alternate offline pipeline: download PDFs → `pypdf` extracts text → regex splits it into sections → re-chunk and re-embed | Replaces the "Offline" pipeline's text source (3.1) — abstracts vs. full paper sections, chosen at index-build time via `--source` |
+| **Knowledge graph** | A separate Streamlit page (`src/ui/pages/2_Knowledge_Graph.py`) reading `structured_facts.jsonl` directly | Not in the query flow — a standalone visualization view, not something a question passes through |
+| **Analytics dashboard** | Another separate Streamlit page reading pre-built artifacts (corpus, facts, eval CSV) — no models loaded | Also not in the query flow — a read-only reporting view |
+
+The important thing to get right if asked: **three of these six (memory, expansion, full-paper
+ingestion) actually change what happens when you ask a question; the other three (LLM-judge eval,
+knowledge graph, analytics) are separate tools built *around* the system, not new steps inside it.**
 
 ---
 
@@ -351,6 +423,43 @@ features (highest-leverage next step); hybrid retrieval has only been deeply ver
 failure case, not evaluated across a full test set yet; Flan-T5-base sometimes can't synthesize
 across multiple passages even with the right source retrieved. See Section 6 for the full list.
 
+**Q: Why Groq instead of RAGAS, if RAGAS is the standard library for this?**
+It was tried first. RAGAS's dependency chain turned out to be broken against this project's other
+libraries — its supported versions each require an incompatible `langchain-community` release (full
+details in ADR-010). Rather than downgrade the whole stack to accommodate one evaluation library, a
+small custom evaluator was written implementing the same *metrics* RAGAS is built on (Faithfulness,
+Answer Relevancy, Context Precision — Section 1.15), scored by a free Groq-hosted model. This is a
+good, honest example to have ready: a real engineering tradeoff, not "we didn't know about RAGAS."
+
+**Q: Doesn't using an API (Groq) break the project's "fully local" design?**
+Yes, deliberately, for exactly two optional features (query expansion, LLM-judge evaluation) — and
+both degrade gracefully without it: query expansion silently falls back to the unmodified query if
+`GROQ_API_KEY` is missing or the call fails, and the LLM-judge evaluator simply can't be run without
+a key (it's an offline evaluation script, not something end users touch). The core answer-generation
+path (Flan-T5) never calls an external API. Worth being upfront that this is a real, deliberate
+tradeoff of evaluation/retrieval quality against the "everything runs locally for free" property the
+rest of the project has.
+
+**Q: Have you actually confirmed full-paper ingestion and query expansion help, or is that just the hypothesis?**
+[Fill this in with your own measured before/after numbers once you've run the comparison — see
+Section 6, item 6, and RESULTS.md's Phase 9 evaluation section for the real numbers. Don't answer
+this one from the hypothesis alone if you have real data to cite instead.]
+
+**Q: How does multi-turn memory work, and why cap it at 3 turns?**
+It's a simple rolling window, not a vector-store or summarization-based memory — the last 6 messages
+(3 user+assistant turns) are prepended as plain text to the prompt. The cap exists because Flan-T5's
+input limit is 1024 tokens; unlimited history would eventually overflow it and silently truncate
+something more important (the retrieved context). It's a deliberately simple design, chosen over
+more complex memory architectures specifically because they were judged architecturally incompatible
+with this project's raw-`model.generate()` approach (ADR-006, ADR-010).
+
+**Q: What does the knowledge graph actually show — is it just decoration?**
+No — it's built from the same `structured_facts.jsonl` every other NER-driven feature uses, so it's
+a genuinely different *view* of real extracted data, not a separate demo dataset. It has three modes
+(global, paper-centric, entity-centric) specifically because rendering all ~400 papers'
+worth of entities at once with physics simulation would freeze the browser — a real, documented
+engineering constraint (ADR-013), not an arbitrary UI choice.
+
 ---
 
 ## 6. Limitations — State These Before You're Asked
@@ -371,6 +480,19 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 4. **Generation quality is capped by model size** — Flan-T5-base occasionally can't synthesize an
    answer across multiple retrieved passages even when the right material was retrieved.
 5. **Self-verification checks consistency, not correctness** — see Section 1.12's nuance.
+6. **Full-paper ingestion and query expansion were both built to test specific hypotheses about
+   improving retrieval — check RESULTS.md's Phase 9 evaluation section for whether the actual
+   before/after numbers confirmed them**, rather than assuming they did because the feature exists.
+   Shipping a feature and measuring its effect are two different claims — be precise about which one
+   you're making.
+7. **The Phase 9 extensions have no automated test coverage** — unlike the core pipeline (which has
+   10 pure-logic unit tests), query expansion's fallback behavior and the PDF section-detection logic
+   were added without tests. (If you're reading this after that gap was closed, this item may be
+   stale — check `tests/` directly.)
+8. **Query expansion and the LLM-judge evaluator depend on an external API (Groq)** — the one
+   deliberate departure from this project's otherwise fully-local design, with real tradeoffs
+   (network dependency, rate limits, a model you don't control the weights of). Both degrade
+   gracefully without it, but it's a genuine design compromise worth naming, not hiding.
 
 ---
 
@@ -387,11 +509,14 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | Fusion method | Reciprocal Rank Fusion + NER entity-overlap boost |
 | Generator | `google/flan-t5-base` |
 | Reliability layers | Self-verification, ambiguity abstention |
-| Retrieval hit-rate | 100% (20/20 hand-written questions) |
+| Retrieval hit-rate | 100% (20/20 hand-written questions, dense retrieval) |
 | Tests | 20 automated (10 unit, 10 integration), `ruff` clean, GitHub Actions CI |
 | Base paper | Maharana et al. (2025) — RAG+NER for materials-science literature |
 | Key technique borrowed | ChatExtract (Polak & Morgan) — follow-up verification prompting |
 | NER training data | SOFC-Exp (Brack et al., 2020), 876 labeled sentences |
+| ADRs | 13 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
+| Phase 9 extensions | Multi-turn memory · LLM-judge eval (Groq) · query expansion (Groq) · full-paper ingestion · knowledge graph (pyvis) · analytics dashboard |
+| Judge/expansion model | `groq/compound-mini` via the Groq API — the one non-local piece, with graceful fallback |
 | Biggest known limitation | NER precision (~9% F1) caps the NER-driven features' reliability |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
