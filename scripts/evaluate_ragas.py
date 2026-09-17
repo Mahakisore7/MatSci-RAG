@@ -6,10 +6,12 @@ Measures three core RAG quality metrics without RAGAS dependency:
   - Answer Relevancy: Is the answer actually relevant to the question?
   - Context Precision: Is the retrieved context relevant to the question?
 
-All scoring is done by Llama-3.1-8b-instant via Groq API (free tier).
+All scoring is done by groq/compound-mini via Groq API (free tier). (Llama-3.1-8b-instant
+and llama3-8b-8192 were tried first and decommissioned/404'd before landing here — see ADR-010.)
 Results saved to docs/results/ragas_evaluation.csv
 """
 
+import argparse
 import csv
 import json
 import os
@@ -116,18 +118,18 @@ def score_context_precision(question: str, contexts: list[str]) -> float:
 # ------------------------------------------------------------------
 # Main evaluation loop
 # ------------------------------------------------------------------
-def main():
-    os.makedirs("docs/results", exist_ok=True)
+def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluation.csv"):
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     results = []
 
     print(f"{'='*60}")
-    print(f"  MatSci-RAG Evaluation  |  Judge: {GROQ_MODEL}")
+    print(f"  MatSci-RAG Evaluation  |  Judge: {GROQ_MODEL}  |  expand_q={expand_q}")
     print(f"{'='*60}\n")
 
     for i, question in enumerate(BENCHMARK_QUESTIONS, 1):
         print(f"[{i}/{len(BENCHMARK_QUESTIONS)}] {question}")
 
-        answer, docs = answer_query(question, use_hybrid=True)
+        answer, docs = answer_query(question, use_hybrid=True, expand_q=expand_q)
         contexts = [d.page_content for d in docs]
 
         if "Multiple candidate materials found" in answer:
@@ -173,7 +175,7 @@ def main():
         print(f"  Questions scored:   {len(results)}/{len(BENCHMARK_QUESTIONS)}")
         print(f"{'='*60}")
 
-        csv_path = "docs/results/ragas_evaluation.csv"
+        csv_path = output_path
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
                 f,
@@ -202,5 +204,26 @@ def main():
         print("No results were collected.")
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Groq LLM-judge RAG evaluation "
+            "(Faithfulness / Answer Relevancy / Context Precision)."
+        )
+    )
+    parser.add_argument(
+        "--expand",
+        action="store_true",
+        help="Enable LLM query expansion before retrieval (default: off, matches the app).",
+    )
+    parser.add_argument(
+        "--output",
+        default="docs/results/ragas_evaluation.csv",
+        help="Where to write the results CSV (default: docs/results/ragas_evaluation.csv).",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    main()
+    args = _parse_args()
+    main(expand_q=args.expand, output_path=args.output)
