@@ -6,8 +6,10 @@ Measures three core RAG quality metrics without RAGAS dependency:
   - Answer Relevancy: Is the answer actually relevant to the question?
   - Context Precision: Is the retrieved context relevant to the question?
 
-All scoring is done by groq/compound-mini via Groq API (free tier). (Llama-3.1-8b-instant
-and llama3-8b-8192 were tried first and decommissioned/404'd before landing here — see ADR-010.)
+Scoring is done by the Groq model in src.core.config.GROQ_JUDGE_MODEL (free tier).
+Groq has retired three judge models so far (llama-3.1-8b-instant, llama3-8b-8192,
+groq/compound-mini -- see ADR-010), so scores are only comparable across runs that
+used the same judge.
 Results saved to docs/results/ragas_evaluation.csv
 """
 
@@ -27,14 +29,21 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 load_dotenv()
 
-from groq import Groq, RateLimitError  # noqa: E402
+from groq import (  # noqa: E402
+    APIConnectionError,
+    APITimeoutError,
+    Groq,
+    InternalServerError,
+    RateLimitError,
+)
 
+from src.core.config import GEN_MODEL_NAME, GROQ_JUDGE_MODEL  # noqa: E402
 from src.rag.rag_query import answer_query  # noqa: E402
 
-# ------------------------------------------------------------------
-# Config
-# ------------------------------------------------------------------
-GROQ_MODEL = "groq/compound-mini"
+# Transient infrastructure failures worth retrying (429, 5xx "over capacity",
+# dropped connections). Anything else -- e.g. a 404 for a retired model --
+# aborts the run instead of being recorded as a score.
+_RETRYABLE = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
 
 BENCHMARK_QUESTIONS = [
     "What materials are used as electrolytes in solid oxide fuel cells?",
@@ -52,41 +61,41 @@ BENCHMARK_QUESTIONS = [
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 
-def groq_score(prompt: str, retries: int = 3) -> float:
-    """Send a scoring prompt to Groq; expect JSON back with key 'score' 0-1.
+def parse_score(raw: str) -> float:
+    match = re.search(r"\{.*?\}", raw, re.DOTALL)
+    if match:
+        return float(json.loads(match.group())["score"])
+    num = re.search(r"\b(0(\.\d+)?|1(\.0+)?)\b", raw)
+    if num:
+        return float(num.group())
+    raise ValueError(f"Judge reply has no score: {raw!r}")
 
-    Retries on rate-limit errors (with backoff) so a transient 429 on the
-    free tier records as a retried success, not a false 0.0 "unfaithful"
-    score -- conflating infrastructure failure with content quality would
-    silently corrupt the evaluation numbers.
+
+def groq_score(prompt: str, retries: int = 5) -> float:
+    """Send a scoring prompt to the judge; expect JSON back with key 'score' 0-1.
+
+    Never returns a made-up 0.0 on failure: an infrastructure error scored as
+    "unfaithful" is indistinguishable from a real judgment and silently
+    corrupts the averages. Transient errors are retried with exponential
+    backoff; everything else raises and stops the run.
     """
     for attempt in range(retries):
         try:
             response = client.chat.completions.create(
-                model=GROQ_MODEL,
+                model=GROQ_JUDGE_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.0,
-                max_tokens=100,
+                # gpt-oss is a reasoning model; its reasoning tokens count
+                # against max_tokens, so leave ample headroom for the JSON.
+                max_tokens=1024,
+                reasoning_effort="low",
             )
-            raw = response.choices[0].message.content.strip()
-            # Try to extract a JSON score
-            match = re.search(r"\{.*?\}", raw, re.DOTALL)
-            if match:
-                return float(json.loads(match.group())["score"])
-            # Fallback: look for a bare number
-            num = re.search(r"\b(0(\.\d+)?|1(\.0+)?)\b", raw)
-            if num:
-                return float(num.group())
-            return 0.0
-        except RateLimitError as e:
-            wait = 5.0 * (attempt + 1)
-            print(f"    [Groq rate limit, retry {attempt + 1}/{retries} in {wait:.0f}s] {e}")
+            return parse_score(response.choices[0].message.content or "")
+        except _RETRYABLE as e:
+            wait = 5.0 * 2**attempt
+            print(f"    [Groq transient error, retry {attempt + 1}/{retries} in {wait:.0f}s] {e}")
             time.sleep(wait)
-        except Exception as e:
-            print(f"    [Groq error] {e}")
-            return 0.0
-    print("    [Groq error] rate-limited after all retries, scoring as 0.0")
-    return 0.0
+    raise RuntimeError(f"Judge still failing after {retries} retries; aborting evaluation.")
 
 
 def score_faithfulness(question: str, answer: str, contexts: list[str]) -> float:
@@ -135,8 +144,21 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     results = []
 
+    if expand_q:
+        # expand_query() degrades to the raw query on any error, which would
+        # silently turn an "--expand" run into a no-expansion run. Fail fast.
+        from src.rag.query_expansion import get_expansion_llm
+
+        llm = get_expansion_llm()
+        if llm is None:
+            raise SystemExit("--expand needs GROQ_API_KEY set.")
+        llm.invoke("Reply with OK.")
+
     print(f"{'='*60}")
-    print(f"  MatSci-RAG Evaluation  |  Judge: {GROQ_MODEL}  |  expand_q={expand_q}")
+    print(
+        f"  MatSci-RAG Evaluation  |  Generator: {GEN_MODEL_NAME}  |  "
+        f"Judge: {GROQ_JUDGE_MODEL}  |  expand_q={expand_q}"
+    )
     print(f"{'='*60}\n")
 
     for i, question in enumerate(BENCHMARK_QUESTIONS, 1):

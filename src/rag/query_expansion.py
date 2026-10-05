@@ -8,12 +8,10 @@ import os
 
 from langchain_groq import ChatGroq
 
+from src.core.config import GROQ_EXPANSION_MODEL
 from src.core.logging_config import get_logger
 
 log = get_logger(__name__)
-
-# Reusing the free Groq model we used for RAGAS evaluation
-GROQ_MODEL = "groq/compound-mini"
 
 _expansion_llm = None
 
@@ -27,7 +25,9 @@ def get_expansion_llm():
             log.warning("GROQ_API_KEY not found. Query expansion disabled.")
             return None
         try:
-            _expansion_llm = ChatGroq(model_name=GROQ_MODEL, temperature=0.0)
+            _expansion_llm = ChatGroq(
+                model_name=GROQ_EXPANSION_MODEL, temperature=0.0, reasoning_effort="low"
+            )
         except Exception as e:
             log.error(f"Failed to initialize Groq LLM: {e}")
             return None
