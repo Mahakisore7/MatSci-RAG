@@ -4,7 +4,7 @@ Phase 5: RAG Generation — rag_query.py
 
 The core RAG pipeline: embed a query, retrieve the most relevant passages
 from ChromaDB, build a grounding prompt, and generate an answer from ONLY
-that context using google/flan-t5-base.
+that context using the generator configured in src.core.config.GEN_MODEL_NAME.
 """
 
 # Must import HuggingFaceEmbeddings before torch to avoid Windows DLL crash
@@ -13,6 +13,9 @@ import torch  # noqa: I001
 
 from langchain_chroma import Chroma
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
+# pyrefly: ignore [missing-import]
+from src.core.config import GEN_MODEL_NAME
 
 # pyrefly: ignore [missing-import]
 from src.core.logging_config import get_logger
@@ -27,8 +30,6 @@ CHROMA_DIR = "data/chroma_db"
 COLLECTION_NAME = "sofc_papers"
 EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 BGE_QUERY_PREFIX = "Represent this question for searching relevant documents: "
-
-GEN_MODEL_NAME = "google/flan-t5-base"
 
 # ── 1. Setup Retriever ───────────────────────────────────────────────────────
 log.info(f"Loading embedding model: {EMBED_MODEL_NAME}")

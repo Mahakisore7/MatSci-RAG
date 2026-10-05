@@ -3,6 +3,7 @@ made real: a question in, a grounded answer + verifiable sources out."""
 
 import streamlit as st
 
+from src.core.config import GEN_MODEL_NAME
 from src.rag.rag_query import answer_query, verify_answer
 
 # Visual Polish: Configure the page layout and title
@@ -33,7 +34,7 @@ with st.sidebar:
     st.markdown("### System Architecture")
     st.markdown("- **Corpus:** 400 SOFC papers")
     st.markdown("- **Embedding:** `BAAI/bge-small-en-v1.5`")
-    st.markdown("- **Generator:** `google/flan-t5-base`")
+    st.markdown(f"- **Generator:** `{GEN_MODEL_NAME}`")
     st.markdown("- **Database:** ChromaDB")
 
 # ── Main Chat UI ─────────────────────────────────────────────────────────────
