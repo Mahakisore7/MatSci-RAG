@@ -35,12 +35,11 @@ from src.ingestion.pdf_downloader import download_pdfs
 from src.ingestion.pdf_parser import parse_all_pdfs
 from src.rag.build_index import (
     CHROMA_DIR,
-    CHUNK_SIZE_FULL,
     FACTS_PATH,
     FULL_PAPERS_PATH,
-    build_documents_from_full_papers,
+    build_full_paper_chunks,
     build_index,
-    chunk_documents,
+    load_corpus,
     load_facts,
     load_full_papers,
 )
@@ -101,8 +100,7 @@ def run_ingestion(max_papers: int | None, delay: float, dry_run: bool) -> None:
     log.info("\n[Step 3/3] Rebuilding ChromaDB index with full-paper sections...")
     facts = load_facts(FACTS_PATH)
     full_papers = load_full_papers(FULL_PAPERS_PATH)
-    docs = build_documents_from_full_papers(full_papers, facts)
-    chunks = chunk_documents(docs, chunk_size=CHUNK_SIZE_FULL)
+    chunks = build_full_paper_chunks(full_papers, load_corpus(CORPUS_PATH), facts)
     build_index(chunks)
 
     log.info("\n" + "=" * 60)

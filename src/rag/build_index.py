@@ -159,6 +159,21 @@ def chunk_documents(docs: list[Document], chunk_size: int = CHUNK_SIZE_ABSTRACT)
     return chunks
 
 
+def build_full_paper_chunks(full_papers: dict, corpus: dict, facts: dict) -> list[Document]:
+    """Full-paper section chunks, plus abstract chunks for every corpus paper
+    whose PDF couldn't be downloaded or parsed -- otherwise those papers would
+    silently vanish from the index when switching to full-paper mode."""
+    full_chunks = chunk_documents(
+        build_documents_from_full_papers(full_papers, facts), chunk_size=CHUNK_SIZE_FULL
+    )
+    missing = {pid: paper for pid, paper in corpus.items() if pid not in full_papers}
+    fallback_docs = build_documents(missing, facts)
+    for doc in fallback_docs:
+        doc.metadata["section"] = "abstract"
+    log.info(f"Abstract fallback for {len(missing)} papers without parsed full text")
+    return full_chunks + chunk_documents(fallback_docs, chunk_size=CHUNK_SIZE_ABSTRACT)
+
+
 def build_index(chunks: list[Document]) -> Chroma:
     """Embed chunks using BGE and persist to ChromaDB."""
     log.info(f"Loading embedding model: {EMBED_MODEL_NAME}")
@@ -221,8 +236,7 @@ if __name__ == "__main__":
                 "Run: uv run python -m src.ingestion.pdf_parser first."
             )
         full_papers = load_full_papers(FULL_PAPERS_PATH)
-        docs = build_documents_from_full_papers(full_papers, facts)
-        chunks = chunk_documents(docs, chunk_size=CHUNK_SIZE_FULL)
+        chunks = build_full_paper_chunks(full_papers, load_corpus(CORPUS_PATH), facts)
     else:
         log.info("Building index from ABSTRACTS (default)...")
         corpus = load_corpus(CORPUS_PATH)
