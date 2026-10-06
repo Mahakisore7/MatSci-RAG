@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+from html import escape
 
 import networkx as nx
 import streamlit as st
@@ -8,8 +9,7 @@ from pyvis.network import Network
 
 # pyrefly: ignore [missing-import]
 from src.rag.ner_utils import clean_entities
-
-st.set_page_config(page_title="Knowledge Graph", page_icon="🕸️", layout="wide")
+from src.ui.theme import DEVICE, EXPERIMENT, MATERIAL, PAPER, hero, legend
 
 FACTS_PATH = "data/structured_facts.jsonl"
 
@@ -59,34 +59,44 @@ def build_networkx_graph(data, max_papers=None, target_paper=None, target_entity
 
         # Add Paper Node (Blue, larger)
         G.add_node(
-            paper_id, label=short_title, title=title, group="paper", size=25, color="#3b82f6"
+            paper_id, label=short_title, title=escape(title), kind="paper", size=25, color=PAPER
         )
 
         # Add Material Nodes (Red)
         for mat in record["materials"]:
             G.add_node(
-                mat, label=mat, title=f"Material: {mat}", group="material", size=15, color="#ef4444"
+                mat,
+                label=mat,
+                title=f"Material: {escape(mat)}",
+                kind="material",
+                size=15,
+                color=MATERIAL,
             )
-            G.add_edge(paper_id, mat, color="#9ca3af")
+            G.add_edge(paper_id, mat, color="#475569")
 
         # Add Device Nodes (Green)
         for dev in record["devices"]:
             G.add_node(
-                dev, label=dev, title=f"Device: {dev}", group="device", size=15, color="#10b981"
+                dev,
+                label=dev,
+                title=f"Device: {escape(dev)}",
+                kind="device",
+                size=15,
+                color=DEVICE,
             )
-            G.add_edge(paper_id, dev, color="#9ca3af")
+            G.add_edge(paper_id, dev, color="#475569")
 
         # Add Experiment Nodes (Orange)
         for exp in record["experiments"]:
             G.add_node(
                 exp,
                 label=exp,
-                title=f"Experiment: {exp}",
-                group="experiment",
+                title=f"Experiment: {escape(exp)}",
+                kind="experiment",
                 size=15,
-                color="#f59e0b",
+                color=EXPERIMENT,
             )
-            G.add_edge(paper_id, exp, color="#9ca3af")
+            G.add_edge(paper_id, exp, color="#475569")
 
     return G
 
@@ -100,7 +110,7 @@ def render_pyvis(G, physics=True):
     net = Network(
         height="700px",
         width="100%",
-        bgcolor="#0e1117",  # Match Streamlit dark mode
+        bgcolor="#0f172a",  # matches the sidebar navy
         font_color="white",
         notebook=False,
         cdn_resources="remote",  # Load vis.js from CDN, no local lib/
@@ -115,9 +125,7 @@ def render_pyvis(G, physics=True):
     net.from_nx(G)
 
     # Write to a proper OS temp file, read it back, then delete immediately
-    with tempfile.NamedTemporaryFile(
-        suffix=".html", delete=False, mode="w", encoding="utf-8"
-    ) as f:
+    with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as f:
         tmp_path = f.name
     net.write_html(tmp_path)
     with open(tmp_path, encoding="utf-8") as f:
@@ -129,14 +137,14 @@ def render_pyvis(G, physics=True):
 
 # ── UI Layout ────────────────────────────────────────────────────────────────
 
-st.title("🕸️ SOFC Knowledge Graph")
-st.markdown(
-    "Explore the relationships between papers and their extracted Materials, "
-    "Devices, and Experiments. \n"
-    "Nodes are sized and colored by type. Hover over nodes to see full titles."
-)
-
 data = load_and_clean_graph_data()
+
+hero(
+    "Explore",
+    "Knowledge graph",
+    "Papers linked to the materials, devices and experiments MatSciBERT extracted from them. "
+    "Hover a node for its full name; drag to rearrange.",
+)
 
 if not data:
     st.error(f"Could not load data from `{FACTS_PATH}`. Has the ingestion pipeline run?")
@@ -152,16 +160,22 @@ for d in data:
 all_entities = sorted(all_entities)
 
 with st.sidebar:
-    st.header("Graph Filters")
-    view_mode = st.radio(
-        "View Mode", ["Global View (Top N Papers)", "Paper-Centric", "Entity-Centric"]
+    st.subheader("View")
+    view_mode = (
+        st.segmented_control(
+            "View mode",
+            ["All", "Paper", "Entity"],
+            default="All",
+            label_visibility="collapsed",
+        )
+        or "All"
     )
 
     max_papers = None
     target_paper = None
     target_entity = None
 
-    if view_mode == "Global View (Top N Papers)":
+    if view_mode == "All":
         max_papers = st.slider(
             "Number of papers to plot", min_value=10, max_value=200, value=50, step=10
         )
@@ -169,24 +183,22 @@ with st.sidebar:
             "Rendering more than 100 papers at once may cause browser "
             "lag due to physics simulation."
         )
-    elif view_mode == "Paper-Centric":
+    elif view_mode == "Paper":
         target_paper = st.selectbox("Select a Paper", all_titles)
     else:
         target_entity = st.selectbox("Select an Entity", all_entities)
 
-    st.markdown("---")
-    enable_physics = st.checkbox("Enable Physics Simulation", value=True)
+    enable_physics = st.toggle("Physics simulation", value=True)
 
-    st.markdown("---")
-    st.markdown("### Legend")
-    st.markdown("🔵 **Paper** (Center node)")
-    st.markdown("🔴 **Material**")
-    st.markdown("🟢 **Device**")
-    st.markdown("🟠 **Experiment**")
+    st.divider()
+    st.subheader("Legend")
+    legend(
+        [("Paper", PAPER), ("Material", MATERIAL), ("Device", DEVICE), ("Experiment", EXPERIMENT)]
+    )
 
 
 # Build and render graph
-with st.spinner("Building Graph..."):
+with st.spinner("Building graph…"):
     G = build_networkx_graph(
         data, max_papers=max_papers, target_paper=target_paper, target_entity=target_entity
     )
@@ -195,6 +207,13 @@ with st.spinner("Building Graph..."):
         st.warning("No nodes matched your filter criteria.")
     else:
         # Render HTML
-        st.markdown(f"**Nodes:** {G.number_of_nodes()} | **Edges:** {G.number_of_edges()}")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Nodes", G.number_of_nodes(), border=True)
+        c2.metric("Edges", G.number_of_edges(), border=True)
+        c3.metric(
+            "Papers shown",
+            sum(1 for _, a in G.nodes(data=True) if a.get("kind") == "paper"),
+            border=True,
+        )
         html = render_pyvis(G, physics=enable_physics)
-        st.iframe(html, height=715, scrolling=False)
+        st.iframe(html, height=715)
