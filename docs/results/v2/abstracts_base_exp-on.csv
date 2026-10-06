@@ -1,0 +1,9 @@
+question,answer,faithfulness,answer_relevancy,context_precision
+What materials are used as electrolytes in solid oxide fuel cells?,Gadolinium doped ceria,1.0,0.5,0.6
+What is the effect of temperature on SOFC performance?,Controlling the temperature and temperature distribution in batteries.,1.0,0.0,0.6
+Which cathode materials show high oxygen reduction activity in SOFCs?,Perovskite.,1.0,0.5,1.0
+What causes anode degradation in Ni-YSZ SOFCs?,Interdiffusion between the yttria stabilized zirconia and the gadolinia doped ceria,1.0,0.0,0.2
+How does grain size affect the ionic conductivity of ceria?,I don't know based on the given context.,1.0,0.0,0.2
+What is the role of GDC as an interlayer in SOFC cathodes?,Functional thin films as cathode/electrolyte interlayers: a strategy to enhance the performance and durability of solid oxide fuel cells,0.0,0.0,0.2
+What sintering temperatures are typically used for LSCF cathodes?,I don't know based on the given context.,1.0,0.0,0.6
+AVERAGE,,0.857,0.143,0.486

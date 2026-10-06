@@ -368,3 +368,68 @@ rather than theoretical.
   each measurably work, that don't simply compose — found, measured, and explained with the actual
   data, not asserted from the hypothesis alone.
 
+
+---
+
+## Phase 10: Full Corpus, New Judge, Generator Size (2026-10-06)
+
+The follow-up above ended with two open questions: does the full-paper result hold beyond a
+55-paper subset, and is Flan-T5-base the bottleneck? Both are now measured.
+
+### What changed before measuring
+
+| Change | Why it matters |
+|---|---|
+| Full text for **399 / 400** papers (was 55); the one 404'd PDF falls back to its abstract | Results now describe the real corpus, not a subset |
+| Index rebuilt: **22,659 vectors** (was 1,330 for abstracts) | — |
+| Judge `groq/compound-mini` → `openai/gpt-oss-120b` | Groq retired the old judge. **Scores below are not comparable with any earlier table in this file.** |
+| Evaluator aborts on non-transient errors instead of scoring them 0.0 | The first attempt under the retired judge produced a plausible but entirely fake table of zeros |
+
+### Results — 8 configurations, 7 questions, same judge
+
+| Index | Generator | Expansion | Faithfulness | Answer Relevancy | Context Precision |
+|---|---|:---:|---:|---:|---:|
+| Abstracts | flan-t5-base | | 0.857 | 0.000 | 0.314 |
+| Abstracts | flan-t5-base | on | 0.857 | 0.143 | 0.486 |
+| Abstracts | flan-t5-large | | 0.857 | 0.000 | 0.343 |
+| Abstracts | flan-t5-large | on | 0.857 | 0.071 | 0.457 |
+| Full text | flan-t5-base | | 0.857 | 0.071 | 0.586 |
+| Full text | flan-t5-base | on | 0.857 | 0.000 | 0.571 |
+| Full text | flan-t5-large | | 0.714 | 0.000 | 0.586 |
+| Full text | flan-t5-large | on | 0.857 | 0.000 | 0.543 |
+
+Raw per-question CSVs: `docs/results/v2/`. They are also browsable in the app's Analytics page.
+
+**Judge noise.** Context Precision depends only on retrieval, so two runs on the same index
+should score identically. They differ by up to 0.03 (0.314 vs 0.343), which sets the resolution
+of this benchmark.
+
+### Findings
+
+1. **Full text is a real retrieval win at full scale:** Context Precision 0.314 → 0.586. The
+   55-paper result held.
+2. **Generation is the bottleneck, and a larger Flan-T5 does not fix it.** `flan-t5-large`
+   answered "I don't know" to 6 of 7 full-text questions, including the cathode and anode
+   questions whose retrieved passages scored 1.0 and 0.9. Answer Relevancy is at or near zero in
+   every configuration, so the September "collapse" was not specific to full text + expansion.
+   It was the generator's floor, which the stricter judge now exposes everywhere.
+3. **Expansion helps retrieval on abstracts only** (0.314 → 0.486). On full text it adds nothing.
+4. **The self-verifier is not a reliable safeguard** when it is the same small model. In a live
+   test (README, finding 1) it confirmed an answer taken from the wrong passage, while the
+   passage that actually answered the question sat at rank 2.
+
+### Decisions (ADR-015)
+
+- Default generator stays **flan-t5-base**: large costs ~3× the memory and latency for no gain.
+- Default index is **full text**: it has the best retrieval.
+- Next lever: a modern instruction-tuned generator (~7–8B). One `GEN_MODEL_NAME` change plus one
+  eval run measures it.
+
+### Bugs found in this pass
+
+| Bug | Effect | Fix |
+|---|---|---|
+| Groq retired `groq/compound-mini` | Every judge call 404'd and was scored 0.0; query expansion silently became a no-op | Models moved to config; evaluator aborts on errors; `--expand` preflights the model |
+| `streamlit run src/ui/app.py` could not import `src` | The chat UI had not started since the September restructure | Entry point adds the project root to `sys.path` |
+| `st.iframe(..., scrolling=False)` | Knowledge Graph page crashed on Streamlit 1.60 | Removed the unsupported argument |
+| Full-paper index dropped papers without a parsed PDF | Those papers vanished from retrieval | Abstract fallback (`build_full_paper_chunks`) |
