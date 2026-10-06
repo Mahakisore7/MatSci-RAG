@@ -33,6 +33,8 @@ Each ADR follows this standard structure:
 | [ADR-011](ADR-011-llm-query-expansion.md) | LLM-Based Query Expansion | Accepted |
 | [ADR-012](ADR-012-full-paper-ingestion.md) | Full Paper Ingestion via PDF Download + Section Parsing | Accepted |
 | [ADR-013](ADR-013-knowledge-graph-visualization.md) | Knowledge Graph Visualization | Accepted |
+| [ADR-014](ADR-014-rest-api.md) | A REST API over the RAG Pipeline (Docker considered and dropped) | Accepted |
+| [ADR-015](ADR-015-generator-size-and-full-corpus-evaluation.md) | Generator Size — flan-t5-large Evaluated and Not Adopted | Accepted |
 
 ## Naming Convention
 

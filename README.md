@@ -1,253 +1,591 @@
-# 🔬 MatSci-RAG: Domain-Specific RAG for Materials Science
+<div align="center">
 
-[![Python 3.13](https://img.shields.io/badge/python-3.13-3776AB?logo=python&logoColor=white)](.python-version)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
-[![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9)](https://docs.astral.sh/uv/)
-[![Linted with ruff](https://img.shields.io/badge/linted-ruff-261230)](https://docs.astral.sh/ruff/)
-[![CI](https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml)
+<img src="docs/assets/banner.svg" alt="MatSci-RAG — NER-aware question answering over Solid Oxide Fuel Cell literature" width="100%">
 
-A complete, end-to-end Retrieval-Augmented Generation (RAG) system built for Materials Science literature, focusing on Solid Oxide Fuel Cells (SOFCs).
+<br/>
 
-It demonstrates how to upgrade a "generic" RAG pipeline into a **Domain-Specific NER-RAG** system using a custom-trained MatSciBERT model to extract material entities and use them to intelligently search a literature corpus.
+<p>
+Ask a question about SOFC materials and get an answer grounded <b>only</b> in 400 arXiv papers —<br/>
+with the passages it came from, a self-verification check, and an explicit <i>"I don't know"</i> when the literature is silent.
+</p>
 
-**Contents:** [Status](#-project-status) · [Setup & Run](#-setup--run) · [Architecture](#-architecture) · [Key Results](#-key-results) · [Screenshots](#-screenshots) · [Project Structure](#-project-structure) · [Documentation](#-documentation)
+<p>
+<a href="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml"><img src="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+<img src="https://img.shields.io/badge/tests-46%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="46 tests">
+<img src="https://img.shields.io/badge/ADRs-15-6366f1?style=flat-square" alt="14 ADRs">
+<img src="https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13">
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0"></a>
+</p>
+
+<p>
+<img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white" alt="PyTorch">
+<img src="https://img.shields.io/badge/Hugging%20Face-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black" alt="Hugging Face">
+<img src="https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" alt="LangChain">
+<img src="https://img.shields.io/badge/ChromaDB-FF6446?style=for-the-badge" alt="ChromaDB">
+<img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+<img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit">
+<img src="https://img.shields.io/badge/Groq-F55036?style=for-the-badge" alt="Groq">
+<img src="https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white" alt="uv">
+</p>
+
+<p>
+<a href="#overview"><b>Overview</b></a> &nbsp;·&nbsp;
+<a href="#architecture"><b>Architecture</b></a> &nbsp;·&nbsp;
+<a href="#quickstart"><b>Quickstart</b></a> &nbsp;·&nbsp;
+<a href="#rest-api"><b>REST API</b></a> &nbsp;·&nbsp;
+<a href="#results"><b>Results</b></a> &nbsp;·&nbsp;
+<a href="#findings"><b>Findings</b></a> &nbsp;·&nbsp;
+<a href="#roadmap"><b>Roadmap</b></a> &nbsp;·&nbsp;
+<a href="#documentation"><b>Docs</b></a>
+</p>
+
+</div>
 
 ---
 
-## 🚀 Project Status
+<a name="overview"></a>
 
-All 9 core phases (0–8) are complete, plus a Phase 9 extension pass adding six further
-capabilities on top — see both tables below.
+## <img src="docs/assets/icons/overview.svg" width="26" height="26" align="top" alt=""> Overview
 
-| Phase | What Was Built | Status |
-|---|---|---|
-| 0 | Environment setup: `uv`, `ruff`, pre-commit, logging, CI | ✅ |
-| 1 | Data ingestion: 400 SOFC abstracts scraped from ArXiv | ✅ |
-| 2 | NER training: MatSciBERT fine-tuned on SOFC-Exp corpus | ✅ |
-| 3 | NER inference: structured facts extracted from 400 papers | ✅ |
-| 4 | Vector indexing: 1,330 chunks embedded into ChromaDB | ✅ |
-| 5 | RAG generation: grounded answers via `google/flan-t5-base` | ✅ |
-| 6 | Evaluation: retrieval hit-rate measured on 20 test questions | ✅ |
-| 7 | Streamlit UI + GitHub Actions CI | ✅ |
-| 8 | Hybrid retrieval (BM25), self-verification, uncertainty abstention | ✅ |
+General-purpose RAG treats a materials-science paper like any other text: it embeds chunks and
+retrieves by similarity. That breaks on this domain — *"cathode materials"* pulls in battery
+papers, and chemical formulas like `La0.6Sr0.4Co0.2Fe0.8O3` don't embed meaningfully.
 
-### Phase 9 — Extensions
+MatSci-RAG adds a **domain layer**: a MatSciBERT model fine-tuned for materials NER extracts
+materials, devices and experiments from every paper, and retrieval uses those entities to
+re-rank results — without ever filtering a paper out.
 
-| Extension | What It Adds | ADR |
-|---|---|---|
-| Multi-turn conversation memory | Follow-up questions resolve pronouns/context from the last 3 turns | [ADR-010](docs/ADRs/ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) |
-| LLM-judge RAG evaluation | Groq-scored Faithfulness / Answer Relevancy / Context Precision, replacing the RAGAS library (broken import across all compatible versions — see the ADR) | [ADR-010](docs/ADRs/ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) |
-| LLM-based query expansion | Optional pre-retrieval query rewriting via Groq; resolves pronouns using chat history, degrades to the raw query if no API key/on error | [ADR-011](docs/ADRs/ADR-011-llm-query-expansion.md) |
-| Full-paper ingestion | Download + section-parse full PDFs (not just abstracts) via `pypdf`, re-index with section-aware chunking | [ADR-012](docs/ADRs/ADR-012-full-paper-ingestion.md) |
-| Knowledge graph visualization | Interactive `pyvis`/`networkx` graph of papers ↔ extracted entities, 3 view modes | [ADR-013](docs/ADRs/ADR-013-knowledge-graph-visualization.md) |
-| Analytics dashboard | Corpus stats, NER entity distributions, RAG eval scores — a Streamlit page reading only pre-built artifacts | [ADR-010](docs/ADRs/ADR-010-multi-turn-memory-and-llm-judge-evaluation.md) |
+| Capability | How it works |
+|---|---|
+| **Domain NER** | MatSciBERT fine-tuned on SOFC-Exp; beats a BERT-base baseline (F1 0.0915 vs 0.0816) |
+| **Hybrid retrieval** | Dense (BGE-small) + BM25, fused with Reciprocal Rank Fusion, plus an NER-overlap boost |
+| **Grounded generation** | Context-only prompting; refuses off-topic or unsupported questions |
+| **Self-verification** | A second model call checks whether the context actually supports the answer |
+| **Ambiguity abstention** | Asks the user to narrow the question when results span too many materials |
+| **Multi-turn memory** | Follow-ups resolve pronouns from the last 3 turns |
+| **Query expansion** | Optional LLM rewrite into a keyword-rich search query (retrieval only) |
+| **Full-paper ingestion** | PDF download → section parsing → section-aware chunking |
+| **Knowledge graph** | Interactive paper ↔ entity graph |
+| **LLM-as-judge evaluation** | Faithfulness / Answer Relevancy / Context Precision, reproducible from one script |
+| **REST API** | FastAPI with validated schemas and Swagger docs |
+
+<p align="center">
+  <img src="docs/assets/ui-assistant.png" alt="MatSci-RAG assistant" width="92%">
+</p>
 
 ---
 
-## 🛠️ Setup & Run
+<a name="architecture"></a>
 
-### Prerequisites
-- Python 3.13
-- [`uv`](https://docs.astral.sh/uv/) package manager
+## <img src="docs/assets/icons/architecture.svg" width="26" height="26" align="top" alt=""> Architecture
 
-### Install
+### System overview
+
+Two halves run at different times: an **offline pipeline** that builds the knowledge base once,
+and an **online pipeline** that answers every question. Both share the same NER facts.
+
+```mermaid
+flowchart TB
+    subgraph SRC["SOURCES"]
+        direction LR
+        ARX[("arXiv API<br/>400 SOFC papers")]
+        EXP[("SOFC-Exp<br/>annotated NER corpus")]
+        ARX ~~~ EXP
+    end
+
+    subgraph OFF["OFFLINE PIPELINE · run once"]
+        direction LR
+        ING["Ingestion<br/>abstracts + full-text PDFs"] --> NER["MatSciBERT NER<br/>fine-tune → inference"] --> IDX["Chunk + embed<br/>BGE-small-en-v1.5"]
+    end
+
+    subgraph KB["KNOWLEDGE BASE"]
+        direction LR
+        CH[("ChromaDB<br/>vectors + NER metadata")]
+        FX[("Structured facts<br/>materials · devices · experiments")]
+        CH ~~~ FX
+    end
+
+    subgraph ON["ONLINE PIPELINE · every question"]
+        direction LR
+        RET["Hybrid retrieval<br/>dense + BM25 + NER boost"] --> GEN["Grounded generation<br/>Flan-T5"] --> VER["Self-verification<br/>+ abstention"]
+    end
+
+    subgraph IF["INTERFACES"]
+        direction LR
+        UI["Streamlit app<br/>chat · analytics · graph"]
+        API["REST API<br/>FastAPI · /query"]
+        UI ~~~ API
+    end
+
+    GROQ{{"Groq API<br/>query expansion · eval judge"}}
+
+    SRC ==> OFF ==> KB ==> ON ==> IF
+    GROQ -. optional .-> ON
+
+    classDef src fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef off fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+    classDef kb fill:#ecfeff,stroke:#0891b2,color:#083344
+    classDef on fill:#fff7ed,stroke:#ea580c,color:#431407
+    classDef ifc fill:#f0fdf4,stroke:#16a34a,color:#052e16
+    classDef ext fill:#faf5ff,stroke:#9333ea,color:#3b0764
+    class ARX,EXP src
+    class NER,ING,IDX off
+    class CH,FX kb
+    class RET,GEN,VER on
+    class UI,API ifc
+    class GROQ ext
+    style SRC fill:transparent,stroke:#94a3b8,stroke-dasharray:4 4
+    style OFF fill:transparent,stroke:#6366f1,stroke-dasharray:4 4
+    style KB fill:transparent,stroke:#0891b2,stroke-dasharray:4 4
+    style ON fill:transparent,stroke:#ea580c,stroke-dasharray:4 4
+    style IF fill:transparent,stroke:#16a34a,stroke-dasharray:4 4
+```
+
+### Offline: building the knowledge base
+
+```mermaid
+flowchart TB
+    A[("arXiv search<br/>400 papers")] --> B["fetch_corpus.py<br/>titles + abstracts"]
+    A --> P["pdf_downloader.py<br/>399 / 400 PDFs"]
+    P --> Q["pdf_parser.py<br/>pypdf → section detection<br/>intro · methods · results · …"]
+
+    S[("SOFC-Exp<br/>BIO-tagged sentences")] --> T["train.py<br/>MatSciBERT vs BERT-base"]
+    T -->|"best model"| N["inference.py<br/>run NER on every abstract"]
+    B --> N
+    N --> F[("structured_facts.jsonl")]
+
+    B --> C1["Abstract chunks<br/>500 chars · 50 overlap"]
+    Q --> C2["Section chunks<br/>800 chars · 50 overlap<br/>references dropped"]
+    B -. "fallback for papers<br/>without a parsed PDF" .-> C2
+    F -. "joined as chunk metadata" .-> C1
+    F -.-> C2
+
+    C1 -->|"--source abstract"| E["build_index.py<br/>BGE-small embeddings"]
+    C2 -->|"--source full_paper"| E
+    E --> DB[("ChromaDB<br/>collection: sofc_papers")]
+
+    classDef store fill:#ecfeff,stroke:#0891b2,color:#083344
+    classDef ner fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+    classDef full fill:#fff7ed,stroke:#ea580c,color:#431407
+    class A,S,F,DB store
+    class T,N ner
+    class P,Q,C2 full
+```
+
+The index is built from **either** abstracts **or** full-text sections. Rebuilding always
+replaces the collection — it never merges the two.
+
+### Online: answering a question
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant I as Streamlit UI / FastAPI
+    participant X as Query expansion<br/>(Groq gpt-oss-20b)
+    participant R as hybrid_retrieve()
+    participant K as ChromaDB + BM25
+    participant A as detect_ambiguity()
+    participant G as Generator<br/>(Flan-T5)
+
+    U->>I: question (+ last 3 turns)
+    opt expansion enabled
+        I->>X: rewrite for search
+        X-->>I: keyword-rich query<br/>(raw query on any error)
+    end
+    I->>R: search query
+    R->>K: dense top-20 + BM25 top-20
+    K-->>R: candidates
+    R->>R: RRF fusion + NER-overlap boost
+    R-->>I: top-5 passages
+    I->>A: entities in the top-5
+    alt too many distinct materials
+        A-->>U: abstain — "please narrow your question"
+    else normal case
+        I->>G: context-only prompt + ORIGINAL question
+        G-->>I: answer
+        I->>G: "does the context support this?"
+        G-->>I: verification
+        I-->>U: answer · verification badge · cited sources
+    end
+```
+
+Expansion changes only **what is searched for**; the generator always sees the user's original
+question, so a bad rewrite can't put words in the answer.
+
+### Zoom-in: why retrieval is NER-*aware*, not NER-*gated*
+
+An early version hard-filtered results by NER tags. The data showed why that fails: **68% of
+papers have no extracted `devices` at all**, so a filter silently discarded most of the corpus.
+The current design uses entities only as a **soft boost**:
+
+```mermaid
+flowchart LR
+    Q["Query"] --> D["Dense search<br/>BGE-small · pool = max(4k, 20)"]
+    Q --> B["BM25 search<br/>keyword · pool = max(4k, 20)"]
+    Q --> E["Entities mentioned<br/>in the query"]
+    D --> RRF["Reciprocal Rank Fusion<br/>Σ 1 / (60 + rank)"]
+    B --> RRF
+    E -->|"+0.02 per matching<br/>paper entity"| RRF
+    RRF --> T["Dedupe → top-k"]
+
+    style RRF fill:#fff7ed,stroke:#ea580c,color:#431407
+    style E fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+```
+
+A paper with no extracted entities can still rank first on text alone; entities can only lift
+relevant papers, never remove one. Derivation in [ADR-009](docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md).
+
+### Evaluation harness
+
+```mermaid
+flowchart LR
+    QS["7 benchmark<br/>SOFC questions"] --> P["answer_query()<br/>config under test"]
+    P --> AN["answer + top-5 contexts"]
+    AN --> J{{"Judge LLM<br/>Groq gpt-oss-120b"}}
+    J --> M1["Faithfulness<br/>answer ⊆ context?"]
+    J --> M2["Answer Relevancy<br/>answers the question?"]
+    J --> M3["Context Precision<br/>are the passages relevant?"]
+    M1 & M2 & M3 --> CSV[("docs/results/v2/*.csv")]
+
+    style J fill:#faf5ff,stroke:#9333ea,color:#3b0764
+```
+
+Transient API errors are retried with backoff; any other judge failure **aborts the run**
+instead of being recorded as a score (see [Findings](#findings) for why).
+
+---
+
+<a name="quickstart"></a>
+
+## <img src="docs/assets/icons/quickstart.svg" width="26" height="26" align="top" alt=""> Quickstart
+
+**Prerequisites:** Python 3.13, [`uv`](https://docs.astral.sh/uv/), and optionally a free
+[Groq API key](https://console.groq.com/) for query expansion and evaluation.
+
 ```bash
 git clone https://github.com/Mahakisore7/MatSci-RAG.git
 cd MatSci-RAG
 uv sync
+cp .env.example .env          # add GROQ_API_KEY (optional)
 ```
 
-### Run the Chat UI
-```bash
-uv run streamlit run src/ui/app.py
-```
-Opens at `http://localhost:8501`. The sidebar toggles between **Hybrid** and **Dense Only**
-retrieval and an optional **LLM Query Expansion** step, and has a **New Chat** button to reset
-conversation memory. The app is a Streamlit multipage app — the sidebar's page nav also has
-**Analytics** and **Knowledge Graph** pages (`src/ui/pages/`).
+**Build the knowledge base** (one-time; `data/` and `models/` are gitignored):
 
-### Run Tests
 ```bash
-uv run pytest tests/ -v
+# 1. Corpus: 400 SOFC abstracts from arXiv
+uv run python -m src.ingestion.fetch_corpus \
+    --query "solid oxide fuel cell SOFC electrolyte anode cathode material" \
+    --output data/sofc_corpus.jsonl
+
+# 2. NER training data: Bosch's SOFC-Exp corpus (follow its README to fetch the texts)
+git clone https://github.com/boschresearch/sofc-exp_textmining_resources.git data/sofc_exp_repo
+uv run python -m src.ner.prepare_data                 # → data/ner_processed
+
+# 3. Fine-tune MatSciBERT + BERT-base baseline, then tag every paper
+uv run python -m src.ner.train                        # GPU recommended
+uv run python -m src.ner.inference                    # → data/structured_facts.jsonl
+
+# 4. Vector index — abstracts (default) or full text
+uv run python -m src.rag.build_index
+uv run python scripts/ingest_full_papers.py           # optional: download, parse, re-index
 ```
-All 20 tests pass locally (with `data/`/`models/` populated). In CI, 10 pure-logic unit tests
-always run; the 10 that depend on local data/model artifacts skip cleanly instead of failing.
+
+**Run it:**
+
+```bash
+uv run streamlit run src/ui/app.py                    # chat UI → http://localhost:8501
+uv run uvicorn src.api.main:app --port 8000           # REST API → http://localhost:8000/docs
+uv run pytest tests/ -v                               # test suite
+uv run python scripts/evaluate_ragas.py --expand      # LLM-judge evaluation
+```
+
+### Configuration
+
+All settings live in [`src/core/config.py`](src/core/config.py) and can be overridden with
+environment variables (or `.env`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GEN_MODEL_NAME` | `google/flan-t5-base` | Answer generator (any Hugging Face seq2seq model) |
+| `GROQ_API_KEY` | — | Enables query expansion and evaluation |
+| `GROQ_EXPANSION_MODEL` | `openai/gpt-oss-20b` | Query rewriting (fast; on the live path) |
+| `GROQ_JUDGE_MODEL` | `openai/gpt-oss-120b` | Evaluation judge |
+| `HF_TOKEN` | — | Hugging Face downloads (optional) |
+
+Groq has retired several models this project used, so model names are configuration, not code.
 
 ---
 
-## 🏗️ Architecture
+<a name="rest-api"></a>
 
-The system has two halves that run at different times: an **offline indexing pipeline** (run once,
-whenever the corpus changes) and a **live query pipeline** (run on every question). Both use the
-same NER facts, extracted once in Phase 3.
+## <img src="docs/assets/icons/api.svg" width="26" height="26" align="top" alt=""> REST API
 
-### Offline: Corpus → NER Facts → Vector Index
-
-```mermaid
-flowchart LR
-    SOFCEXP[("SOFC-Exp<br/>876 labeled sentences")] --> TRAIN["Fine-tune NER<br/>MatSciBERT vs BERT-base"]
-    ARXIV["arXiv corpus<br/>400 SOFC abstracts"] --> INFER["Run trained NER model"]
-    TRAIN -->|"MatSciBERT wins<br/>F1 0.0915 vs 0.0816"| INFER
-    INFER --> FACTS["structured_facts.jsonl<br/>materials · devices · experiments"]
-    ARXIV --> CHUNK["Chunk text<br/>500 chars / 50 overlap"]
-    FACTS -->|"joined as<br/>chunk metadata"| CHUNK
-    CHUNK --> EMBED["Embed<br/>BAAI/bge-small-en-v1.5"]
-    EMBED --> CHROMA[("ChromaDB<br/>1,330 vectors")]
-
-    style TRAIN fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
-    style CHROMA fill:#eff6ff,stroke:#3b82f6,color:#1e293b
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What causes anode degradation in Ni-YSZ SOFCs?", "expand_query": false}'
 ```
 
-### Live: Question → Grounded, Verified Answer
-
-```mermaid
-flowchart TB
-    Q["User question<br/>+ last 3 turns of chat history"] --> EXP{"Query expansion<br/>enabled? (ADR-011)"}
-    EXP -->|"yes"| GROQ["Groq LLM rewrites query<br/>(resolves pronouns from history)<br/>falls back to raw query on error"]
-    EXP -->|"no (default)"| H
-    GROQ --> H["hybrid_retrieve()<br/>see zoom-in below"]
-    CHROMA2[("ChromaDB")] --> H
-    H --> AMB{"detect_ambiguity()<br/>too many distinct<br/>materials in results?"}
-    AMB -->|"rare — see ADR-009<br/>on NER precision limits"| ABST["Abstain:<br/>ask user to narrow"]
-    AMB -->|"usual case"| PROMPT["build_prompt()<br/>context-only instruction<br/>+ chat history<br/>(original, unexpanded question)"]
-    PROMPT --> GEN["Flan-T5-base<br/>generate()"]
-    GEN --> VER["verify_answer()<br/>2nd LLM call:<br/>'does context support this?'"]
-    VER --> UI["Streamlit UI<br/>answer + ✅/⚠️ badge + sources"]
-    ABST --> UI
-
-    style AMB fill:#fef3c7,stroke:#d97706,color:#451a03
-    style UI fill:#f0fdf4,stroke:#22c55e,color:#052e16
-    style GROQ fill:#f5f3ff,stroke:#8b5cf6,color:#2e1065
+```jsonc
+{
+  "answer": "I don't know based on the given context.",
+  "abstained": false,
+  "verification": "I don't know",
+  "sources": [
+    // 5 passages; rank 2 shown
+    {
+      "rank": 2,
+      "title": "Ni coarsening in the three-phase solid oxide fuel cell anode - a phase-field simulation study",
+      "paper_id": "http://arxiv.org/abs/1201.1567v1",
+      "section": "introduction",
+      "text": "major mechanisms responsible for microstructural change i n SOFC anodes [10]. Ni\ncoarsening in …"
+    }
+  ]
+}
 ```
 
-Query expansion only ever changes what's *searched for* — the unexpanded original question is
-still what gets sent to the generator, per [ADR-011](docs/ADRs/ADR-011-llm-query-expansion.md).
+This is real output, and it illustrates [finding 1](#findings): the Ni-coarsening passage that
+answers the question is retrieved, but the generator still declines to answer.
 
-### Zoom-in: `hybrid_retrieve()` — Why It's NER-*Aware*, Not NER-*Gated*
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `question` | string | — | 1–1000 characters |
+| `use_hybrid` | bool | `true` | `false` = dense-only retrieval |
+| `expand_query` | bool | `false` | LLM rewrite before retrieval |
+| `verify` | bool | `true` | Run the self-verification check |
+| `chat_history` | list | `[]` | `{role: "user" \| "assistant", content}`, max 20 |
 
-An earlier version hard-filtered dense search to papers whose NER tags matched certain keywords —
-which sounds reasonable until you check the data: 68% of papers have no extracted `devices` field
-at all, so a hard filter would silently discard most of the corpus on every query. ADR-009 replaced
-it with a **soft boost** that can improve ranking but never zero out results:
-
-```mermaid
-flowchart LR
-    Q["Query"] --> D["Dense search<br/>BGE-small, pool = k×4"]
-    Q --> B["BM25 search<br/>keyword, pool = k×4"]
-    D --> RRF["Reciprocal Rank Fusion<br/>score = Σ 1/(60 + rank)"]
-    B --> RRF
-    FACTS2["Per-paper NER facts"] -->|"+0.02 per cleaned entity<br/>mentioned in the query"| RRF
-    RRF --> SORT["Sort + dedupe<br/>by paper_id + chunk"]
-    SORT --> TOPK["Top-k results"]
-
-    style RRF fill:#fff7ed,stroke:#f97316,color:#431407
-```
-
-*Full derivation, the `$contains`-operator bug it replaced, and the 68%-empty-field evidence are in*
-*[ADR-009](docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md).*
+`GET /health` returns the active generator. Interactive docs are at `/docs`. Design notes in
+[ADR-014](docs/ADRs/ADR-014-rest-api.md).
 
 ---
 
-## 📊 Key Results
+<a name="results"></a>
 
-| Metric | Result |
+## <img src="docs/assets/icons/results.svg" width="26" height="26" align="top" alt=""> Results
+
+### NER: domain pretraining helps
+
+| Model | Test F1 |
 |---|---|
-| MatSciBERT NER F1 | **Higher than BERT baseline** (see [RESULTS.md](RESULTS.md)) |
-| RAG retrieval hit-rate (20 questions) | **100% — correct paper in top-5 every time** |
-| Flan-T5 guardrails | Refuses off-topic questions ("Who won the Super Bowl?") |
-| Phase 8 live test — anode degradation query | ✅ **"Ni coarsening is considered a major reason..."** |
-| Phase 8 live test — vague electrolyte query | ✅ **"I don't know based on the given context"** (correct refusal) |
+| BERT-base | 0.0816 |
+| **MatSciBERT** | **0.0915** |
 
-Full benchmark data → **[RESULTS.md](RESULTS.md)**
+Absolute F1 is low because the training set is small (SOFC-Exp) and most tokens are non-entities;
+the comparison between the two models is the point. Details in [RESULTS.md](RESULTS.md).
+
+### Retrieval
+
+| Test | Result |
+|---|---|
+| Dense retrieval hit-rate, 20 specific questions | **100% (20/20)** correct paper in top-5 |
+| *"Which cathode materials show high ORR activity?"* | Dense-only returns a battery paper; hybrid returns the SOFC paper ([screenshots](#screenshots)) |
+
+### End-to-end quality (LLM judge, 7 questions)
+
+Eight configurations, the same 7 benchmark questions, judged by `openai/gpt-oss-120b`
+([raw CSVs](docs/results/v2/), analysis in [ADR-015](docs/ADRs/ADR-015-generator-size-and-full-corpus-evaluation.md)):
+
+| Index | Generator | Expansion | Faithfulness | Answer Relevancy | Context Precision |
+|---|---|:---:|---:|---:|---:|
+| Abstracts | flan-t5-base | | 0.857 | 0.000 | 0.314 |
+| Abstracts | flan-t5-base | on | 0.857 | **0.143** | 0.486 |
+| Abstracts | flan-t5-large | | 0.857 | 0.000 | 0.343 |
+| Abstracts | flan-t5-large | on | 0.857 | 0.071 | 0.457 |
+| **Full text** | **flan-t5-base** | | 0.857 | 0.071 | **0.586** |
+| Full text | flan-t5-base | on | 0.857 | 0.000 | 0.571 |
+| Full text | flan-t5-large | | 0.714 | 0.000 | **0.586** |
+| Full text | flan-t5-large | on | 0.857 | 0.000 | 0.543 |
+
+**Bold row = the configuration the app serves by default.** Context Precision depends only on
+retrieval, so the spread between generators on the same index (0.314 vs 0.343) shows the judge's
+noise: about ±0.03.
+
+<p align="center">
+  <img src="docs/assets/ui-analytics-eval.png" alt="Evaluation results in the Analytics page" width="88%">
+</p>
 
 ---
 
-## 🖼️ Screenshots
+<a name="findings"></a>
 
-**Anode-degradation query, Hybrid retrieval — grounded answer, self-verified, with expandable sources:**
+## <img src="docs/assets/icons/findings.svg" width="26" height="26" align="top" alt=""> Findings & Limitations
 
-![Hybrid retrieval answer with verification badge](docs/assets/screenshot-hybrid-answer.png)
+These are measured, not assumed — each has evidence in [RESULTS.md](RESULTS.md).
 
-![Expanded source cards showing retrieved passages and arXiv links](docs/assets/screenshot-sources-expanded.png)
+**1 · Retrieval works; generation is the bottleneck.** Full-text indexing nearly doubles
+Context Precision (0.314 → 0.586), but Answer Relevancy stays near zero in every configuration.
+A larger Flan-T5 does not help: `flan-t5-large` answers *"I don't know"* to 6 of 7 full-text
+questions, including two where the judge rated the retrieved passages 1.0 and 0.9. The
+example below shows it live — the passage at rank 2 states the answer verbatim
+(*"Ni coarsening … is considered a major reason for anode degradation"*), and the generator
+answers from rank 1 instead.
 
-**The same query, two retrieval strategies — this is the Phase 8 hybrid-retrieval improvement (ADR-009) actually happening live, not just measured in the background:**
+<p align="center">
+  <img src="docs/assets/ui-answer.png" alt="Answer with sources: the correct passage is retrieved at rank 2 but the generator answers from rank 1" width="88%">
+</p>
 
-*"Which cathode materials show high oxygen reduction activity?" under* **Dense Only** *— the known failure mode (RESULTS.md, Phase 5): retrieval pulls an off-domain battery-cathode paper, and the model answers from it:*
+**2 · Self-verification by the same small model is weak.** In that example the verifier
+confirmed the wrong answer. A check is only as strong as the model doing it; a stronger or
+different verifier model is needed for this to be a real safeguard.
 
-![Dense-only retrieval answering FePO4 — an off-domain battery cathode material](docs/assets/screenshot-dense-only-cathode-query.png)
+**3 · Query expansion helps retrieval on abstracts, not on full text.** Context Precision rises
+0.314 → 0.486 on abstracts; on full text the passages are already richer and expansion adds
+nothing (0.586 → 0.571).
 
-*The identical question under* **Hybrid (Dense + BM25 + NER)** *— retrieval now surfaces the genuinely relevant SOFC paper, and the answer changes accordingly:*
+**4 · Silent failures were the biggest engineering risk.** Each of these looked healthy from
+the outside: PDF downloads failed for 100% of papers (wrong `arxiv` API); the retired judge
+model's 404s were recorded as 0.0 scores; query expansion silently fell back to the raw query
+for the same reason; and the chat UI could not import its own package after a restructure.
+All are fixed, and the evaluator now **aborts** rather than invent a score.
 
-![Hybrid retrieval answering Perovskite — the correct SOFC-domain cathode material](docs/assets/screenshot-hybrid-cathode-query.png)
+**5 · The corpus is noisier than its name.** Only 144 of the 400 "SOFC" papers explicitly mention
+fuel cells, SOFCs or solid oxide; arXiv keyword search also returned batteries, catalysis and
+some unrelated work.
+
+**6 · NER is useful but imprecise.** Test F1 is 0.09, and most papers have no extracted device
+entity (68% raw, 78% after noise filtering) — which is exactly why entities re-rank results
+instead of filtering them (ADR-009).
+
+**7 · The benchmark is small.** Seven questions detect large effects (like finding 1), not
+differences of a few hundredths.
 
 ---
 
-## 📁 Project Structure
+<a name="roadmap"></a>
+
+## <img src="docs/assets/icons/roadmap.svg" width="26" height="26" align="top" alt=""> Roadmap
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"fontSize": "14px", "cScale0": "#e0e7ff", "cScaleLabel0": "#1e1b4b", "cScale1": "#cffafe", "cScaleLabel1": "#083344", "cScale2": "#ffedd5", "cScaleLabel2": "#431407", "cScale3": "#dcfce7", "cScaleLabel3": "#052e16", "cScale4": "#f3e8ff", "cScaleLabel4": "#3b0764"}}}%%
+timeline
+    title MatSci-RAG build history
+    Phases 0–3 : Tooling, CI, logging
+               : arXiv corpus (400 papers)
+               : MatSciBERT NER fine-tune + inference
+    Phases 4–6 : ChromaDB index (BGE-small)
+               : Grounded Flan-T5 generation
+               : Retrieval evaluation (20/20)
+    Phases 7–8 : Streamlit UI + GitHub Actions
+               : Hybrid BM25 + NER-aware RRF
+               : Self-verification + abstention
+    Phase 9    : Multi-turn memory · query expansion
+               : Full-paper ingestion · knowledge graph
+               : LLM-judge evaluation · analytics
+    Phase 10   : REST API · redesigned UI · configurable models
+               : 399/400 full papers · 8-config re-evaluation
+```
+
+**Next steps**, in order of expected impact:
+
+1. **Stronger generator.** Retrieval quality is no longer the bottleneck — generation is. A
+   7–8B instruction-tuned model (local or via API) is the single biggest lever.
+2. **Corpus filtering.** Only 144 of the 400 papers explicitly mention fuel cells / SOFCs; the
+   arXiv keyword search also pulled in batteries, biology ("cell") and other off-topic work.
+3. **Cross-encoder re-ranking** of the fused top-20 before generation.
+4. **Larger, harder benchmark** — 7 questions is enough to see big effects, not small ones.
+5. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
+   equation fragments into full-paper chunks.
+
+---
+
+<a name="screenshots"></a>
+
+## <img src="docs/assets/icons/screenshots.svg" width="26" height="26" align="top" alt=""> Screenshots
+
+**Assistant** — example questions to start, retrieval and verification controls in the sidebar:
+
+![MatSci-RAG assistant page](docs/assets/ui-assistant.png)
+
+**Analytics** — corpus coverage, extracted entities and every evaluation run:
+
+![Analytics page](docs/assets/ui-analytics.png)
+
+**Knowledge graph** — papers linked to the materials, devices and experiments extracted from them:
+
+![Knowledge graph page](docs/assets/ui-knowledge-graph.png)
+
+<details>
+<summary><b>Dense vs hybrid retrieval on the same question</b> (captured with the Phase 8 UI)</summary>
+<br/>
+
+*Dense only* pulls an off-domain battery paper and answers FePO₄:
+
+![Dense-only retrieval answering FePO4](docs/assets/screenshot-dense-only-cathode-query.png)
+
+*Hybrid (dense + BM25 + NER)* surfaces the SOFC paper instead:
+
+![Hybrid retrieval answering Perovskite](docs/assets/screenshot-hybrid-cathode-query.png)
+
+</details>
+
+---
+
+<a name="tech-stack"></a>
+
+## <img src="docs/assets/icons/stack.svg" width="26" height="26" align="top" alt=""> Tech Stack
+
+| Layer | Stack |
+|---|---|
+| **NER** | <img src="https://img.shields.io/badge/MatSciBERT-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="MatSciBERT"> <img src="https://img.shields.io/badge/Transformers-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="Transformers"> <img src="https://img.shields.io/badge/seqeval-475569?style=flat-square" alt="seqeval"> |
+| **Retrieval** | <img src="https://img.shields.io/badge/BGE--small--en-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="BGE--small--en"> <img src="https://img.shields.io/badge/ChromaDB-FF6446?style=flat-square" alt="ChromaDB"> <img src="https://img.shields.io/badge/BM25-475569?style=flat-square" alt="BM25"> <img src="https://img.shields.io/badge/LangChain-1C3C3C?style=flat-square&logo=langchain&logoColor=white" alt="LangChain"> |
+| **Generation** | <img src="https://img.shields.io/badge/Flan--T5-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="Flan--T5"> <img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch"> |
+| **LLM services** | <img src="https://img.shields.io/badge/Groq%20%C2%B7%20gpt--oss--20b-F55036?style=flat-square" alt="Groq%20%C2%B7%20gpt--oss--20b"> <img src="https://img.shields.io/badge/Groq%20%C2%B7%20gpt--oss--120b-F55036?style=flat-square" alt="Groq%20%C2%B7%20gpt--oss--120b"> |
+| **Ingestion** | <img src="https://img.shields.io/badge/arXiv%20API-B31B1B?style=flat-square&logo=arxiv&logoColor=white" alt="arXiv API"> <img src="https://img.shields.io/badge/pypdf-475569?style=flat-square" alt="pypdf"> <img src="https://img.shields.io/badge/Requests-475569?style=flat-square" alt="Requests"> |
+| **Interfaces** | <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white" alt="Streamlit"> <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"> <img src="https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white" alt="Pydantic"> <img src="https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white" alt="Plotly"> <img src="https://img.shields.io/badge/pyvis%20%C2%B7%20networkx-475569?style=flat-square" alt="pyvis%20%C2%B7%20networkx"> |
+| **Engineering** | <img src="https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white" alt="uv"> <img src="https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black" alt="Ruff"> <img src="https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white" alt="pytest"> <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"> <img src="https://img.shields.io/badge/pre--commit-FAB040?style=flat-square" alt="pre--commit"> |
+
+---
+
+<a name="project-structure"></a>
+
+## <img src="docs/assets/icons/structure.svg" width="26" height="26" align="top" alt=""> Project Structure
 
 ```
 MatSci-RAG/
 ├── src/
-│   ├── core/
-│   │   ├── config.py
-│   │   └── logging_config.py
-│   ├── ingestion/
-│   │   ├── fetch_corpus.py
-│   │   ├── pdf_downloader.py       ← Phase 9: downloads full-paper PDFs from arXiv
-│   │   └── pdf_parser.py           ← Phase 9: pypdf extraction + section detection
-│   ├── ner/
-│   │   ├── prepare_data.py
-│   │   ├── train.py
-│   │   └── inference.py
+│   ├── core/                 config.py (all tunable settings) · logging_config.py
+│   ├── ingestion/            fetch_corpus.py · pdf_downloader.py · pdf_parser.py
+│   ├── ner/                  prepare_data.py · train.py · inference.py
 │   ├── rag/
-│   │   ├── build_index.py          ← --source abstract|full_paper (Phase 9)
-│   │   ├── rag_query.py            ← core pipeline: retrieval, generation, verification, memory
-│   │   ├── ner_utils.py            ← shared NER cleaning, ambiguity check, RRF+boost reranking
-│   │   ├── hybrid_retrieval.py     ← BM25 + dense, fused via ner_utils (Phase 8 / ADR-009)
-│   │   ├── query_expansion.py      ← Phase 9: Groq-based query rewriting (ADR-011)
-│   │   └── quick_retrieval_test.py
-│   └── ui/
-│       ├── app.py                  ← Streamlit chat UI (entry point)
-│       └── pages/
-│           ├── 1_Analytics.py      ← Phase 9: corpus/NER/eval-score dashboard
-│           └── 2_Knowledge_Graph.py ← Phase 9: pyvis paper↔entity graph (ADR-013)
-├── scripts/
-│   ├── evaluate_rag.py             ← dense-retrieval hit-rate (Phase 6)
-│   ├── evaluate_ragas.py           ← Phase 9: Groq LLM-judge eval (ADR-010)
-│   ├── ingest_full_papers.py       ← Phase 9: download → parse → re-index orchestrator
-│   ├── quick_facts_analysis.py
-│   └── archive/                    ← superseded one-off scripts, kept for reference
-├── tests/                          ← 20 pytest tests (10 pure unit tests always run in
-│                                      CI; 10 artifact-dependent ones skip cleanly without
-│                                      local data/models instead of erroring)
-├── data/                           ← gitignored (corpus, chroma_db, facts, pdfs)
-├── models/                         ← gitignored (fine-tuned weights ~400MB)
+│   │   ├── build_index.py        abstract or full-paper index (with abstract fallback)
+│   │   ├── hybrid_retrieval.py   dense + BM25 candidate pools
+│   │   ├── ner_utils.py          entity cleaning · RRF + NER boost · ambiguity check
+│   │   ├── query_expansion.py    Groq query rewriting
+│   │   └── rag_query.py          answer_query() · verify_answer()
+│   ├── api/main.py           FastAPI: POST /query, GET /health
+│   └── ui/                   app.py (router) · theme.py · views/{chat, analytics, knowledge_graph}.py
+├── scripts/                  evaluate_ragas.py · evaluate_rag.py · ingest_full_papers.py
+├── tests/                    46 tests — 37 run everywhere (incl. CI); 9 that need local
+│                             data/models skip cleanly on a fresh checkout
 ├── docs/
-│   ├── MatSci-RAG-Review.md        ← formal project review (problem/lit review/methodology/results)
-│   ├── Project-Explainer.md        ← glossary + full flow + mentor Q&A prep guide
-│   ├── ADRs/                       ← 13 Architecture Decision Records
-│   ├── Phases/                     ← Step-by-step build guide (Phases 0–8)
-│   ├── results/                    ← Phase-level explanation docs + RAGAS eval CSV
-│   ├── archive/                    ← base paper PDF + Zeroth Review document
-│   ├── assets/                     ← diagrams + UI screenshots
-│   └── sample_questions.md         ← Ready-to-paste demo questions
-├── .streamlit/config.toml          ← Disables file watcher (Windows fix)
-├── .github/workflows/ci.yml        ← Linting + smoke tests on every push
-├── RESULTS.md                      ← Full benchmark evidence
-├── pyproject.toml
-└── uv.lock
+│   ├── ADRs/                 15 Architecture Decision Records
+│   ├── Phases/               step-by-step build guide, Phases 0–8
+│   ├── results/              evaluation CSVs (v2/ = current judge) and logs
+│   ├── MatSci-RAG-Review.md  formal project review
+│   └── Project-Explainer.md  glossary, full flow, mentor Q&A
+├── data/  models/            gitignored — generated by the offline pipeline
+└── RESULTS.md                all benchmark evidence
 ```
 
 ---
 
-## 📝 Documentation
+<a name="documentation"></a>
 
-- **[docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md)** — full project review: problem statement, literature review, research gap, methodology, and results, written for a mentor/committee audience
-- **[docs/Project-Explainer.md](docs/Project-Explainer.md)** — glossary of every term, the complete data/query flow, one fully-traced example, and anticipated mentor Q&A
-- **[RESULTS.md](RESULTS.md)** — NER F1, retrieval hit-rates, live test output, and bug table
-- **[docs/ADRs/](docs/ADRs/)** — 13 Architecture Decision Records (every major technical choice)
-- **[docs/archive/](docs/archive/)** — the base paper (Maharana et al., 2025) and the formal Zeroth Review document this project is anchored on
-- **[docs/sample_questions.md](docs/sample_questions.md)** — Ready-to-paste demo questions for the UI
+## <img src="docs/assets/icons/docs.svg" width="26" height="26" align="top" alt=""> Documentation
+
+| Document | What's in it |
+|---|---|
+| [RESULTS.md](RESULTS.md) | Every measurement: NER F1, retrieval hit-rate, eval tables, bugs found |
+| [docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md) | Problem statement, literature review, methodology, results |
+| [docs/Project-Explainer.md](docs/Project-Explainer.md) | Glossary of every term, a fully traced example, mentor Q&A |
+| [docs/ADRs/](docs/ADRs/) | 15 decision records — why each technical choice was made |
+| [docs/sample_questions.md](docs/sample_questions.md) | Ready-to-paste demo questions |
+| [docs/archive/](docs/archive/) | Base paper (Maharana et al., 2025) and the Zeroth Review |
 
 ---
 
-> **CI Note:** GitHub Actions runs `ruff` linting and `pytest tests/ -v` on every push. `data/` and `models/` are gitignored (fine-tuned weights are ~400MB–1.7GB and corpus/index files are locally generated), so the 10 tests that depend on those artifacts (NER training/inference, retrieval, generation) skip cleanly on a fresh checkout via `pytest.mark.skipif`, rather than failing. The 10 tests in `tests/test_ner_utils.py` are pure-logic unit tests with no such dependency and always run.
+<div align="center">
+<sub>Licensed under [Apache 2.0](LICENSE) · Built with `uv`, tested with `pytest`, checked by GitHub Actions</sub>
+</div>

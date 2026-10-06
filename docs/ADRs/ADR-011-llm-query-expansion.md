@@ -44,3 +44,15 @@ The LLM is given the conversation history and the user's current question, and i
 **Negative / Trade-offs:**
 - **Latency:** Query expansion adds an extra network call to the Groq API before retrieval begins, adding ~500ms to 1s to the response time. This is why it is exposed as an optional toggle rather than forced on.
 - **Dependency:** It relies on an external API (`GROQ_API_KEY`). If the key is missing or rate-limited, the system gracefully falls back to using the original unexpanded query, ensuring the app remains usable offline (assuming local models for everything else).
+
+---
+
+## Update (2026-10-05): expansion model replaced
+
+`groq/compound-mini` was retired by Groq. Because expansion degrades gracefully, the app kept
+working — but every "expanded" query silently fell back to the raw query, so the feature was
+doing nothing without any visible sign. Expansion now uses `GROQ_EXPANSION_MODEL` from
+`src/core/config.py` (default `openai/gpt-oss-20b`, chosen over the 120b judge because it sits on
+the live request path and is ~5–10× faster). `scripts/evaluate_ragas.py --expand` now preflights
+the expansion model and refuses to run if it is unavailable, so an "expansion" measurement can no
+longer silently measure the no-expansion path.

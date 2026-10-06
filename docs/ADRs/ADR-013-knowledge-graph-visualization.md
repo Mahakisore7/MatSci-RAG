@@ -55,5 +55,5 @@ The `structured_facts.jsonl` data often contains noisy sub-word tokens from the 
 ## Consequences
 
 - Added `pyvis` and `networkx` to project dependencies (`pyproject.toml`).
-- Added a new Streamlit tab: `pages/2_Knowledge_Graph.py`.
+- Added a new Streamlit tab: `pages/2_Knowledge_Graph.py` (now `src/ui/views/knowledge_graph.py`).
 - Enhances user capability to perform "exploratory" literature reviews without issuing explicit text queries.

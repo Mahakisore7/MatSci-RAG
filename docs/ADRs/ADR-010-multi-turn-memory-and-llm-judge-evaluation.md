@@ -97,3 +97,23 @@ This module (`langchain_community.chat_models.vertexai`) was removed from `langc
 - `scripts/evaluate_ragas.py` requires `GROQ_API_KEY` in `.env`. If not present, the script will error on the first Groq call.
 - `langchain-groq` added as a project dependency.
 - The evaluation script can be re-run at any time to measure regression/improvement as corpus and retrieval improve.
+
+---
+
+## Update (2026-10-05): judge model replaced, failures no longer scored
+
+Groq retired `groq/compound-mini` — the third judge model this project has lost (after
+`llama-3.1-8b-instant` and `llama3-8b-8192`). Every judge call then returned a 404, and the
+evaluator's catch-all `except` recorded each failure as a **0.0 score**, producing a
+plausible-looking but entirely fake results table.
+
+Changes:
+- Judge model is now configuration: `GROQ_JUDGE_MODEL` in `src/core/config.py`, default
+  `openai/gpt-oss-120b`, overridable via env var.
+- `groq_score()` retries only transient errors (429, 5xx "over capacity", connection drops) with
+  exponential backoff. Any other error, exhausted retries, or an unparseable reply **aborts the
+  run**. A score is never fabricated.
+- `max_tokens` raised from 100 to 1024: `gpt-oss` is a reasoning model and its hidden reasoning
+  tokens count against the limit.
+- Scores from different judges are not comparable. All configurations were re-measured under the
+  new judge; results live in `docs/results/v2/` and RESULTS.md.

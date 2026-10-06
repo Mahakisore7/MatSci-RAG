@@ -375,24 +375,35 @@ All 9 phases (0–8) are implemented and merged to `main`, **plus** a follow-up 
 pass that found and fixed real defects in the "done" system — worth presenting as evidence of
 process rigor, not just feature completion:
 
-- ✅ Corpus collection, NER training + inference, dense indexing, grounded generation, evaluation,
+- Corpus collection, NER training + inference, dense indexing, grounded generation, evaluation,
   UI, and CI (Phases 0–7) — all functioning and tested.
-- ✅ Self-verification (Phase 8) — functioning as designed.
-- ✅ **Fixed:** a metadata-key bug (`paper_id` vs. `source_id`) that silently made the ambiguity
+- Self-verification (Phase 8) — functioning as designed.
+- **Fixed:** a metadata-key bug (`paper_id` vs. `source_id`) that silently made the ambiguity
   abstention feature dead code since Phase 8 was first written.
-- ✅ **Fixed:** the NER-informed retrieval filter, which returned zero results on every query due
+- **Fixed:** the NER-informed retrieval filter, which returned zero results on every query due
   to a ChromaDB operator misuse — root-caused, and replaced with a soft reranking boost
   (Reciprocal Rank Fusion + NER entity overlap) that measurably improves ranking without the
   fragility of a hard filter.
-- ✅ **Fixed:** the ambiguity-abstention threshold, which — once the key bug above was fixed —
+- **Fixed:** the ambiguity-abstention threshold, which — once the key bug above was fixed —
   was found (by testing, not assumption) to misfire on ordinary questions due to NER noise;
   recalibrated empirically against a 15-query sweep and documented as a known, honestly-reported
   limitation rather than a silently "working" feature.
-- ✅ 10 new unit tests added for the fixed retrieval/ambiguity logic; CI hardened so tests that
+- 10 new unit tests added for the fixed retrieval/ambiguity logic; CI hardened so tests that
   need local data/model artifacts skip cleanly instead of erroring on a fresh checkout.
-- ✅ Housekeeping: removed unused dependencies, unified Python version declarations, made the
+- Housekeeping: removed unused dependencies, unified Python version declarations, made the
   corpus-fetching script's query reproducible, synced all documentation (README, RESULTS.md, 9
   ADRs) to match actual system behavior.
+- **Phase 9 extensions:** multi-turn memory, LLM query expansion, an LLM-as-judge evaluator,
+  full-paper PDF ingestion, a knowledge-graph view, and an analytics page (ADR-010 to ADR-013).
+- **Phase 10 — measured at full scale:** full text for 399 of 400 papers (22,659 vectors), and all
+  8 configurations (index × generator × expansion) re-evaluated under one judge. `flan-t5-large`
+  was tested as a generator and not adopted, because it showed no gain (ADR-015).
+- **Phase 10 — usable by others:** a REST API with validated schemas (ADR-014) and a redesigned
+  Streamlit app (router, shared theme, sources and verification kept in the chat history).
+- **Fixed in Phase 10:** a retired judge model whose errors were silently scored as 0.0; query
+  expansion silently doing nothing for the same reason; a chat UI that could not import its own
+  package after a restructure; and full-paper indexing that dropped papers without a PDF. Test
+  suite: 46 tests.
 
 ### 8.2 Remaining / Future Work
 
@@ -409,16 +420,22 @@ Reported honestly rather than inflated:
    dense-only hit-rate only). Worth doing next, especially since dense-only already hits 100% on
    that particular test set — a harder, more ambiguity-prone test set would be needed to show
    hybrid retrieval's benefit quantitatively, not just on the one known failure case.
-3. **Generation quality is capped by Flan-T5-base's size** — it sometimes cannot synthesize an
-   answer across multiple retrieved passages even when the right source material was retrieved
-   (observed and documented in RESULTS.md's Phase 5 results). A larger instruction-tuned model is
-   a natural next step if generation quality needs to improve further.
+3. **Generation is the measured bottleneck.** In Phase 10, full text raised Context Precision
+   from 0.314 to 0.586, yet Answer Relevancy stayed at or near zero in all 8 configurations, and
+   `flan-t5-large` made answers more cautious rather than better (ADR-015). A modern
+   instruction-tuned generator (~7–8B parameters) is now the highest-leverage next step, ahead of
+   NER improvements. A stronger, independent model for self-verification belongs with it: in a
+   live test, the same-model verifier confirmed a wrong answer.
 4. **Retrieval fusion parameters are reasonable defaults, not tuned.** The NER-boost weight and
    candidate pool size were sanity-checked against real data but not formally grid-searched.
 5. **Two pieces of flagged-but-deliberately-untouched cleanup:** a bloated leftover model
    checkpoint directory (~1.3GB, local disk only, not part of the tracked project) and several
    stale, already-merged git branches on the remote — both low-risk, low-priority, and left for an
    explicit decision rather than done silently.
+6. **Corpus filtering.** Only 144 of the 400 papers explicitly mention fuel cells, SOFCs or solid
+   oxide; a relevance filter (or a better arXiv query) would make every downstream number cleaner.
+7. **A larger benchmark.** Seven questions detect large effects only; the judge varies by about
+   ±0.03 between identical retrievals.
 
 ---
 

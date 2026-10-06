@@ -232,8 +232,9 @@ graph into an interactive, physics-simulated HTML visualization).
 | **ChromaDB collection `sofc_papers`** | The actual name of the vector index/table inside ChromaDB |
 | **`k`** | Standard retrieval shorthand for "how many results to return" (this project defaults to k=5) |
 | **Groq** | An LLM inference API this project uses for two Phase 9 features (query expansion, LLM-judge evaluation) — the one deliberate exception to the project's otherwise fully-local design, requiring a `GROQ_API_KEY` |
-| **`groq/compound-mini`** | The specific (free-tier) model used via Groq for both of the above |
-| **`src/ui/`** | Where the Streamlit app now lives (`app.py` + a `pages/` folder for the Analytics and Knowledge Graph pages) — it moved out of the repo root in a later restructure |
+| **`gpt-oss-20b` / `gpt-oss-120b`** | The Groq-hosted models used for query expansion and evaluation respectively (configurable in `src/core/config.py`; `groq/compound-mini` was used until Groq retired it in Oct 2026) |
+| **`src/ui/`** | The Streamlit app: `app.py` is a small router (`st.navigation`) that applies the shared `theme.py` and runs one of three pages in `views/` — `chat.py`, `analytics.py`, `knowledge_graph.py` |
+| **`src/api/main.py`** | The REST API (FastAPI): `POST /query` wraps the same `answer_query()` the UI uses (ADR-014) |
 
 ---
 
@@ -293,7 +294,7 @@ boosted by NER entity overlap. The system checks whether the retrieved evidence 
 not (the usual case), it builds a strict, context-only prompt — using the *original*, unexpanded
 question, plus recent chat history — and asks Flan-T5 to answer. That answer is then independently
 re-checked by asking the same model "does the context actually support this?" Finally the UI shows
-the answer, a ✅/⚠️ verification badge, and the source papers used.
+the answer, a verification badge, and the source papers used.
 
 ### 3.3 Phase 9: Six Extensions on Top of the Core Pipeline
 
@@ -306,12 +307,26 @@ more capabilities without changing that core design — worth being able to name
 | **Query expansion** | `expand_query()` — Section 1.14 | The new decision diamond at the top of 3.2 |
 | **LLM-judge evaluation** | `scripts/evaluate_ragas.py` — a custom Groq-based scorer (Section 1.15), run *offline*, not part of the live query path | Not in the live flow at all — a separate evaluation script |
 | **Full-paper ingestion** | An alternate offline pipeline: download PDFs → `pypdf` extracts text → regex splits it into sections → re-chunk and re-embed | Replaces the "Offline" pipeline's text source (3.1) — abstracts vs. full paper sections, chosen at index-build time via `--source` |
-| **Knowledge graph** | A separate Streamlit page (`src/ui/pages/2_Knowledge_Graph.py`) reading `structured_facts.jsonl` directly | Not in the query flow — a standalone visualization view, not something a question passes through |
+| **Knowledge graph** | A separate Streamlit page (`src/ui/views/knowledge_graph.py`) reading `structured_facts.jsonl` directly | Not in the query flow — a standalone visualization view, not something a question passes through |
 | **Analytics dashboard** | Another separate Streamlit page reading pre-built artifacts (corpus, facts, eval CSV) — no models loaded | Also not in the query flow — a read-only reporting view |
 
 The important thing to get right if asked: **three of these six (memory, expansion, full-paper
 ingestion) actually change what happens when you ask a question; the other three (LLM-judge eval,
 knowledge graph, analytics) are separate tools built *around* the system, not new steps inside it.**
+
+### 3.4 Phase 10: Measuring It Properly, and Making It Usable
+
+Phase 10 added no new retrieval tricks. It made the system measurable at full scale and usable by
+other people and programs:
+
+| Change | Why |
+|---|---|
+| Full text for **399 / 400** papers (22,659 vectors); papers without a PDF keep their abstract | Phase 9's full-paper result was on a 55-paper subset |
+| All 8 configurations re-measured under a new judge (`gpt-oss-120b`) | Groq retired the old judge; old and new scores are not comparable |
+| `flan-t5-large` tested as a generator — and **not** adopted (ADR-015) | To test whether model size was the bottleneck |
+| REST API (`src/api/main.py`, ADR-014) | Lets other programs call the pipeline with a validated contract |
+| Redesigned Streamlit UI (router + shared theme + three views) | Sources and verification now persist in the chat history; consistent design |
+| Models moved into `src/core/config.py` with env-var overrides | Groq retired three models this project depended on |
 
 ---
 
@@ -453,6 +468,29 @@ retrieved pool larger and noisier still. Each fix works; they don't simply add t
 real, data-backed limit on Flan-T5-base's synthesis capacity, not a flaw in either individual
 feature — and it's a stronger, more credible answer than claiming everything improved.
 
+*Update (Phase 10):* re-measured on the **full corpus (399 papers)** under the new judge, the
+retrieval half holds: full text raises Context Precision 0.314 → 0.586. The stricter judge also
+shows Answer Relevancy at or near zero in *every* configuration, so the "collapse" was really the
+generator's floor showing through — not something specific to combining the two features.
+
+**Q: You tested a bigger generator. Why didn't it help?**
+`flan-t5-large` (3× the parameters) didn't raise Answer Relevancy in any configuration; on full text
+it answered "I don't know" to 6 of 7 questions, including two where the judge rated the retrieved
+passages 1.0 and 0.9. It became more cautious, not more capable. The Flan-T5 family was trained to
+answer short questions over short inputs, and synthesizing an answer from five dense technical
+passages is a different skill. That's why ADR-015 kept `flan-t5-base` and points to a modern
+instruction-tuned model (~7–8B) as the next experiment. Have the live example ready: the passage
+saying *"Ni coarsening … is considered a major reason for anode degradation"* is retrieved at rank
+2, and the generator still answers from rank 1.
+
+**Q: Why build a REST API, and why no Docker image?**
+The API (ADR-014) lets other programs use the pipeline, with request validation and auto-generated
+docs, and it reuses `answer_query()` so it can't drift from the UI. A CPU-only Docker image was built
+and verified, then dropped: about 3 GB for the image plus about 20 GB of build cache was a poor
+trade for a project that runs on one machine. The lesson worth keeping is in ADR-014. The lock file
+pins CUDA torch, so a CPU image has to install the CPU torch wheel *first*, or other packages pull
+the 4 GB CUDA stack back in.
+
 **Q: If faithfulness stayed at 1.0 even when the answers were garbled fragments, isn't your faithfulness metric broken?**
 No — it's doing exactly what it's specified to do (checking whether the answer's words are actually
 present in the retrieved context), and that's precisely the point worth making to a mentor: a
@@ -494,23 +532,29 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
    benchmark** — the 20-question evaluation script currently measures dense-only retrieval; a
    harder, more ambiguity-prone test set would be needed to show hybrid retrieval's benefit as a
    number, not just a case study.
-4. **Generation quality is capped by model size** — Flan-T5-base occasionally can't synthesize an
-   answer across multiple retrieved passages even when the right material was retrieved.
-5. **Self-verification checks consistency, not correctness** — see Section 1.12's nuance.
+4. **Generation is the bottleneck, and it isn't fixed by a bigger Flan-T5** — measured in Phase 10
+   (ADR-015): Answer Relevancy is at or near zero in all 8 configurations, even when the retrieved
+   passages are rated highly relevant. `flan-t5-large` made it more cautious, not better.
+5. **Self-verification checks consistency, not correctness** — see Section 1.12's nuance. Phase 10
+   showed it live: the verifier (the same small model) confirmed an answer taken from the wrong
+   passage.
 6. **Full-paper ingestion and query expansion each help independently, but do not compose** —
    measured, not assumed (`RESULTS.md`'s Phase 9 Follow-up section, and Section 5's Q&A above).
    Combined, Answer Relevancy collapsed to 0.000 despite Context Precision still improving, because
    Flan-T5-base produces faithful-but-incoherent fragments from full-paper text made noisier still by
    expansion's broader queries. Shipping a feature and measuring its effect are different claims —
    this project now has real numbers for both, including where they conflict.
-7. **The Phase 9 extensions have no automated test coverage** — unlike the core pipeline (which has
-   10 pure-logic unit tests), query expansion's fallback behavior and the PDF section-detection logic
-   were added without tests. (If you're reading this after that gap was closed, this item may be
-   stale — check `tests/` directly.)
+7. **The benchmark is small** — 7 questions, and the judge itself varies by about ±0.03 between
+   identical retrievals. It detects large effects (like #4), not small differences. (Test coverage,
+   once a gap here, is now 46 tests: query expansion, PDF parsing, index building and the API
+   contract are all covered.)
 8. **Query expansion and the LLM-judge evaluator depend on an external API (Groq)** — the one
    deliberate departure from this project's otherwise fully-local design, with real tradeoffs
    (network dependency, rate limits, a model you don't control the weights of). Both degrade
    gracefully without it, but it's a genuine design compromise worth naming, not hiding.
+9. **The corpus is noisier than its name** — only 144 of the 400 papers explicitly mention fuel
+   cells, SOFCs or solid oxide; the arXiv keyword search also pulled in batteries, catalysis and
+   some unrelated work.
 
 ---
 
@@ -519,23 +563,25 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | | |
 |---|---|
 | Domain | Solid Oxide Fuel Cell (SOFC) materials science literature |
-| Corpus | 400 arXiv abstracts → 1,330 chunks |
+| Corpus | 400 arXiv papers — abstracts (1,330 chunks) or full text for 399 of them (22,659 chunks, the default) |
 | NER model | `m3rg-iitd/matscibert` (F1 0.0915) vs `bert-base-uncased` (F1 0.0816) |
 | Embedding model | `BAAI/bge-small-en-v1.5` |
 | Vector DB | ChromaDB |
 | Keyword retrieval | BM25 (`rank-bm25`) |
 | Fusion method | Reciprocal Rank Fusion + NER entity-overlap boost |
-| Generator | `google/flan-t5-base` |
+| Generator | `google/flan-t5-base` (configurable; `flan-t5-large` tested and not adopted, ADR-015) |
 | Reliability layers | Self-verification, ambiguity abstention |
 | Retrieval hit-rate | 100% (20/20 hand-written questions, dense retrieval) |
-| Tests | 20 automated (10 unit, 10 integration), `ruff` clean, GitHub Actions CI |
+| Tests | 46 automated (37 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
 | Base paper | Maharana et al. (2025) — RAG+NER for materials-science literature |
 | Key technique borrowed | ChatExtract (Polak & Morgan) — follow-up verification prompting |
 | NER training data | SOFC-Exp (Brack et al., 2020), 876 labeled sentences |
-| ADRs | 13 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
+| ADRs | 15 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
 | Phase 9 extensions | Multi-turn memory · LLM-judge eval (Groq) · query expansion (Groq) · full-paper ingestion · knowledge graph (pyvis) · analytics dashboard |
-| Judge/expansion model | `groq/compound-mini` via the Groq API — the one non-local piece, with graceful fallback |
-| Biggest known limitation | NER precision (~9% F1) caps the NER-driven features' reliability |
+| Phase 10 | Full corpus (399/400 full text) · 8-config re-evaluation · REST API · redesigned UI |
+| End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.071 · Context Precision 0.586 |
+| Judge / expansion models | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` via the Groq API — the one non-local piece; expansion degrades gracefully, evaluation fails loudly |
+| Biggest known limitation | Generation: answers stay weak even when retrieval finds the right passage. NER precision (~9% F1) is second. |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
 review), [`docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md`](ADRs/ADR-009-ner-aware-retrieval-reranking.md)

@@ -1,6 +1,6 @@
 # Sample Questions for MatSci-RAG UI
 
-Use these questions in the Streamlit UI (`uv run streamlit run app.py`) to test the different capabilities of the system.
+Use these questions in the Streamlit UI (`uv run streamlit run src/ui/app.py`) to test the different capabilities of the system.
 
 ### 1. Specific Fact Extraction (Standard RAG)
 These questions test the system's ability to find specific technical facts and synthesize them into an answer.
