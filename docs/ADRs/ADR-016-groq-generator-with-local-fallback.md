@@ -54,7 +54,11 @@ differences are judge noise (about ±0.03–0.04).
 On the anode-degradation question, Flan-T5 had answered from the wrong passage while the right
 one sat at rank 2. Qwen names Ni coarsening and explains the Gibbs–Thomson mechanism, and the
 verifier quotes the source sentence. The remaining "I don't know" answers (3 of 7 without
-expansion) are on questions where the retrieved passages genuinely don't contain the answer.
+expansion) are on questions where the retrieved passages don't contain the answer.
+
+> **Correction (ADR-018):** this section originally implied the corpus lacks those answers. That
+> was not checked. A later diagnosis found on-topic papers in the corpus that retrieval ranked
+> outside the top 5, so the limit is retrieval ranking.
 
 ## Consequences
 

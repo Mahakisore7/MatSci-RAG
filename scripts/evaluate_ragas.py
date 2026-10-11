@@ -29,6 +29,10 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 load_dotenv()
 
+# Generated answers can contain symbols the Windows console codepage (cp1252) cannot
+# encode; a print() failure must not kill a long evaluation run.
+sys.stdout.reconfigure(errors="replace")
+
 from groq import (  # noqa: E402
     APIConnectionError,
     APITimeoutError,
@@ -37,6 +41,7 @@ from groq import (  # noqa: E402
     RateLimitError,
 )
 
+from scripts.benchmark_questions import BENCHMARKS  # noqa: E402
 from src.core.config import GROQ_JUDGE_MODEL, active_generator  # noqa: E402
 from src.rag.rag_query import answer_query  # noqa: E402
 
@@ -45,15 +50,6 @@ from src.rag.rag_query import answer_query  # noqa: E402
 # aborts the run instead of being recorded as a score.
 _RETRYABLE = (RateLimitError, InternalServerError, APIConnectionError, APITimeoutError)
 
-BENCHMARK_QUESTIONS = [
-    "What materials are used as electrolytes in solid oxide fuel cells?",
-    "What is the effect of temperature on SOFC performance?",
-    "Which cathode materials show high oxygen reduction activity in SOFCs?",
-    "What causes anode degradation in Ni-YSZ SOFCs?",
-    "How does grain size affect the ionic conductivity of ceria?",
-    "What is the role of GDC as an interlayer in SOFC cathodes?",
-    "What sintering temperatures are typically used for LSCF cathodes?",
-]
 
 # ------------------------------------------------------------------
 # Groq judge
@@ -140,9 +136,26 @@ def score_context_precision(question: str, contexts: list[str]) -> float:
 # ------------------------------------------------------------------
 # Main evaluation loop
 # ------------------------------------------------------------------
-def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluation.csv"):
+def main(
+    expand_q: bool = False,
+    output_path: str = "docs/results/ragas_evaluation.csv",
+    benchmark: str = "v1",
+    resume: bool = False,
+):
+    questions = BENCHMARKS[benchmark]
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     results = []
+
+    # Each scored question is appended here so a run stopped by Groq's daily token
+    # cap (a 28-question run uses nearly all of it) can continue instead of restart.
+    partial_path = output_path + ".partial.jsonl"
+    done: dict[str, dict] = {}
+    if resume and os.path.exists(partial_path):
+        with open(partial_path, encoding="utf-8") as f:
+            done = {r["question"]: r for r in map(json.loads, f)}
+        print(f"Resuming: {len(done)} questions already scored in {partial_path}\n")
+    elif os.path.exists(partial_path):
+        os.remove(partial_path)
 
     if expand_q:
         # expand_query() degrades to the raw query on any error, which would
@@ -161,8 +174,13 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
     )
     print(f"{'=' * 60}\n")
 
-    for i, question in enumerate(BENCHMARK_QUESTIONS, 1):
-        print(f"[{i}/{len(BENCHMARK_QUESTIONS)}] {question}")
+    for i, question in enumerate(questions, 1):
+        print(f"[{i}/{len(questions)}] {question}")
+
+        if question in done:
+            print("  (already scored, reusing)\n")
+            results.append(done[question])
+            continue
 
         answer, docs = answer_query(question, use_hybrid=True, expand_q=expand_q)
         contexts = [d.page_content for d in docs]
@@ -183,15 +201,16 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
 
         print(f"  Faithfulness={faith:.2f}  Relevancy={relevancy:.2f}  Precision={precision:.2f}\n")
 
-        results.append(
-            {
-                "question": question,
-                "answer": answer,
-                "faithfulness": faith,
-                "answer_relevancy": relevancy,
-                "context_precision": precision,
-            }
-        )
+        row = {
+            "question": question,
+            "answer": answer,
+            "faithfulness": faith,
+            "answer_relevancy": relevancy,
+            "context_precision": precision,
+        }
+        results.append(row)
+        with open(partial_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     # ------------------------------------------------------------------
     # Aggregate and save
@@ -207,7 +226,7 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
         print(f"  Faithfulness:       {avg_faith:.3f}")
         print(f"  Answer Relevancy:   {avg_rel:.3f}")
         print(f"  Context Precision:  {avg_prec:.3f}")
-        print(f"  Questions scored:   {len(results)}/{len(BENCHMARK_QUESTIONS)}")
+        print(f"  Questions scored:   {len(results)}/{len(questions)}")
         print(f"{'=' * 60}")
 
         csv_path = output_path
@@ -235,6 +254,8 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
             )
 
         print(f"\n  Detailed results saved -> {csv_path}")
+        if os.path.exists(partial_path):
+            os.remove(partial_path)
     else:
         print("No results were collected.")
 
@@ -251,6 +272,17 @@ def _parse_args() -> argparse.Namespace:
         help="Enable LLM query expansion before retrieval (default: off, matches the app).",
     )
     parser.add_argument(
+        "--benchmark",
+        choices=sorted(BENCHMARKS),
+        default="v1",
+        help="v1 = original 7 questions (default); v2 = 28 questions (ADR-018).",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Continue an interrupted run from <output>.partial.jsonl (same settings only).",
+    )
+    parser.add_argument(
         "--output",
         default="docs/results/ragas_evaluation.csv",
         help="Where to write the results CSV (default: docs/results/ragas_evaluation.csv).",
@@ -260,4 +292,9 @@ def _parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = _parse_args()
-    main(expand_q=args.expand, output_path=args.output)
+    main(
+        expand_q=args.expand,
+        output_path=args.output,
+        benchmark=args.benchmark,
+        resume=args.resume,
+    )

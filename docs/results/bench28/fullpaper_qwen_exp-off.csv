@@ -1,0 +1,78 @@
+question,answer,faithfulness,answer_relevancy,context_precision
+What materials are used as electrolytes in solid oxide fuel cells?,"Based on the provided context, the materials used as electrolytes in solid oxide fuel cells include **gadolinium doped ceria** (Ce1−xGdxO2−δ, GDC), **yttria-stabilized zirconia** (YSZ), and **Bi2O3**.",1.0,1.0,0.4
+What is the effect of temperature on SOFC performance?,I don't know based on the provided context.,1.0,0.0,0.6
+Which cathode materials show high oxygen reduction activity in SOFCs?,"Based on the provided context, the following cathode materials show high oxygen reduction reaction (ORR) activity:
+
+*   **Well-studied commercial materials:** La1-xSrxMnO3 (LSM) and La1-xSrxCo1-yFeyO3 (LSCF).
+*   **High-activity perovskites (some with stability issues):** Ba1-xSrxCo1-yFeyO3 (BSCF) and Pr1-xBaxCoO3 (PBCO).
+*   **Promising new materials identified in the study:** Ba0.75Sr0.25Fe0.875Ga0.125O3, SrCo0.5Sc0.5O3, BaFe0.75Ta0.25O3, BaFe0.125Co0.125Zr0.75O3, BaFe0.875Re0.125O3, and Ba0.5La0.125Zn0.375NiO3.",1.0,1.0,1.0
+What causes anode degradation in Ni-YSZ SOFCs?,"Based on the provided context, anode degradation in Ni-YSZ SOFCs is caused by:
+
+*   **Ni coarsening:** This is a capillarity-driven phenomenon where materials are transported from high-curvature to low-curvature regions (Gibbs-Thomson effect), increasing resistance and resulting in cell degradation.
+*   **Reduction of nickel oxide to nickel:** In metal-supported SOFCs, this reduction process can contribute to cell performance degradation.
+*   **Deactivation of triple-phase boundaries (TPBs):** TPBs may deactivate due to various poisoning mechanisms or microstructural alterations.
+*   **Contaminants:** The presence of heavy tars such as toluene and naphthalene in the fuel (e.g., bio-syngas) can inhibit fuel conversion and mark degradation.",1.0,1.0,1.0
+How does grain size affect the ionic conductivity of ceria?,I don't know based on the provided context.,1.0,0.0,0.2
+What is the role of GDC as an interlayer in SOFC cathodes?,I don't know based on the provided context.,1.0,0.0,0.0
+What sintering temperatures are typically used for LSCF cathodes?,I don't know based on the provided context.,1.0,0.0,0.8
+Why are high-entropy oxides studied for solid oxide fuel cells?,"Based on the provided context, high-entropy oxides are studied for solid oxide fuel cells (SOFCs) because they offer new opportunities for materials discovery beyond the traditional methodology of searching for new stoichiometric compounds. Specifically, they allow for the tailoring of materials through non-equimolar compositional designs and the control of microstructures and interfaces, which can improve properties such as ionic conductivity beyond the limits of conventional doping. Additionally, research focuses on their development for cathodes, electrolytes, and anodes, with particular attention to cathode-related studies due to their current research predominance.",1.0,1.0,0.6
+How does yttrium doping affect oxygen conductivity in barium-based perovskite cathodes?,"Based on the provided context, yttrium (Y) doping in Ba(Fe, Co, Zr, Y)O₃₋δ (BCFZY) materials affects oxygen conductivity through two competing mechanisms:
+
+1.  **Decreased Oxygen Tracer Diffusivity:** Y doping leads to a slight decrease in oxygen tracer diffusivity. While the migration energy for oxygen diffusion shows no statistically significant change between BCFZ (0.25 eV) and BCFZY 0.1 (0.27 eV), it increases significantly in BCFY (0.36 eV). These barrier effects tend to slow oxygen diffusion as Y content increases.
+2.  **Increased Oxygen Vacancy Concentration:** Reference data indicates that Y doping increases the oxygen vacancy concentration.
+
+The net effect is that the activation energy for oxygen conductivity (technically σT) seems to reach its minimum near Y = 0.1, suggesting an optimal doping level where the increase in vacancy concentration balances against the increased migration barriers at higher Y contents.",1.0,1.0,0.6
+What are the advantages of double perovskite cathodes for intermediate-temperature SOFCs?,I don't know based on the provided context.,1.0,0.0,0.0
+How is yttria-stabilized zirconia electrolyte fabricated as a thin dense layer?,"Based on the provided context, yttria-stabilized zirconia (YSZ) electrolytes can be fabricated as thin dense layers using **inkjet printing** directly onto tape cast and pre-sintered NiO-YSZ cermet substrates, or by using a **stereolithography three-dimensional printer** to create self-supported electrolytes.",1.0,1.0,0.4
+What happens at the interface between gadolinia-doped ceria and yttria-stabilized zirconia?,"Based on the provided context, interdiffusion occurs between the gadolinia-doped ceria (CGO) barrier layer and the yttria-stabilized zirconia (YSZ) electrolyte. This interdiffusion is identified as one of the major causes for the increment of ohmic resistance in solid oxide fuel cells (SOFCs).",1.0,1.0,0.6
+What makes a cobalt-free cathode attractive for proton-conducting fuel cells?,"Cobalt-free cathodes are attractive for proton-conducting fuel cells because they avoid the drawbacks associated with cobalt, such as high thermal expansion coefficients, potential cobalt evaporation, and the high cost associated with cobalt.",1.0,1.0,0.4
+How does anode microstructure change over time in a solid oxide fuel cell?,"Based on the provided context, the anode microstructure changes over time primarily through **Ni coarsening**, which is a capillarity-driven phenomenon. This process involves the transport of material from regions of high curvature to regions of lower curvature, leading to an increase in Ni particle size.
+
+Specifically, the changes include:
+*   **Evolution of Phase Clusters:** Phase clusters with larger characteristic lengths evolve slower than those with smaller lengths.
+*   **TPB and Surface Area Changes:** Three-phase boundary (TPB) lengths and Ni surface areas change, with distinctions made between active, dead-end, and isolated phase clusters.
+*   **Pore Tortuosity:** The tortuosity of the pores evolves.
+*   **Stabilization:** The microstructures of Ni-YSZ anodes are found to stabilize after a period of coarsening, meaning the final or stabilized TPB density is more important for long-term operation than short-term evolution kinetics.
+*   **Performance Impact:** These microstructural changes increase resistance in the SOFCs and result in cell degradation, with cell potential drop and Ni particle size increase reaching a plateau after approximately 1000 hours of operation.",1.0,1.0,1.0
+How can 3D imaging be used to characterise SOFC electrode microstructure?,"Based on the provided context, 3D imaging, specifically focused ion beam/scanning electron microscope (FIB/SEM) tomography, is used to characterize SOFC electrode microstructures through the following process:
+
+1.  **Slicing and Imaging:** The FIB is used to cut slices of a designated width through a specific layer of the cell. Each section is then imaged using SEM.
+2.  **Reconstruction:** Software reconstruction is applied to the sequential 2D image stacks to produce a 3D model of the electrode microstructure. This technique offers high spatial resolution, with voxel sizes potentially smaller than 20 nm.
+3.  **Segmentation:** The raw images are processed, typically involving grayscale thresholding, to segment the data into distinct phases (such as pore and solid phase, or nickel, GDC, and pore space) to create a binary image for accurate 3D reconstruction.
+4.  **Quantification and Correlation:** The reconstructed 3D volumes allow for the quantification of key microstructural parameters (using various geometrical descriptors) and elastic properties. This enables the correlation of microstructural features with mechanical properties, electrochemical performance, and process-structure relationships.",1.0,1.0,1.0
+How does ceramic film cracking occur in solid oxide fuel cells?,I don't know based on the provided context.,1.0,0.0,0.0
+How does sulfur poisoning affect a PEM fuel cell electrode?,"Based on the provided context, sulfur poisoning affects a PEM fuel cell electrode in the following ways:
+
+*   **Irreversible and Cumulative Deactivation:** The poisoning effect is cumulative and causes irreversible loss of catalytic activity towards the hydrogen oxidation reaction. Total recovery with neat hydrogen is not possible, though partial recovery may be achieved through potential scanning.
+*   **Mechanism:** Upon exposure, H₂S dissociatively adsorbs onto the Platinum (Pt) anode. At sufficiently high anodic potentials, a layer of adsorbed elemental sulfur forms on the electrode surface.
+*   **Suppression of Oxide Formation:** The formation of this adsorbed sulfur layer suppresses the formation of platinum oxide at oxygen adsorption potentials.
+*   **Performance Impact:** It leads to large potential losses and transient performance degradation. Unlike some models that predict steady-state performance, the actual poisoning results in irreversible deactivation of catalytic sites.",1.0,1.0,1.0
+What is the effect of ammonia on proton exchange membrane fuel cell performance?,"Based on the provided context, the presence of ammonia (NH3) impurities in hydrogen significantly reduces the performance of proton exchange membrane (PEM) fuel cells. This occurs because NH3 dissolves in water/ionomer phases and is protonated to form ammonium cations (NH4+), which poison the fuel cell. Specifically, ammonia significantly reduces the proton conductivity of the proton exchange membrane (PEM) and the anode catalyst layer (ACL). Higher ammonia concentrations lead to lower dissolved water content and further reduced proton conductivity, thereby decreasing cell performance. Additionally, the formation of stable hydrogen bonds between ions within clusters reduces the efficiency of proton transport, which decreases the catalyst layer’s performance in electrochemical reactions.",1.0,1.0,1.0
+How is electrochemical impedance spectroscopy used to analyse fuel cell electrodes?,"Based on the provided context, Electrochemical Impedance Spectroscopy (EIS) is used to assess the real-time ohmic resistance of fuel cells, specifically through the High Frequency Resistance (HFR) method. The ohmic impedance analyzed includes components such as membrane resistance, catalyst layer ionic resistance, gas diffusion layer ohmic resistance, flow field plate ohmic resistance, collector plate ohmic resistance, and interface contact resistance. Additionally, EIS is utilized to characterize the impedance of the cathode catalyst layer (CCL), where models demonstrate that in-phase harmonic perturbations to current density and temperature can lower CCL impedance and static resistivity. EIS is also a widely used tool for the general characterization of fuel cells and other electrochemical conversion systems, including the evaluation of spectral uncertainties in solid oxide fuel cells.",0.5,1.0,1.0
+What transport model is used for hydrogen and water in porous SOFC anodes?,The dusty gas transport model (DGM) is used for hydrogen and water in porous SOFC anodes.,1.0,1.0,0.9
+How does machine learning predict SOFC electrode polarization resistance?,I don't know based on the provided context.,1.0,0.0,0.0
+What does the distribution of relaxation times reveal in PEM fuel cell impedance?,I don't know based on the provided context.,1.0,0.0,0.8
+What limits the durability of solid oxide electrolysis cells under dynamic load cycling?,I don't know based on the provided context.,1.0,0.0,0.2
+How is oxygen partial pressure distributed across a two-layer electrolyte in an SOEC?,I don't know based on the provided context.,1.0,0.0,0.6
+How do grain boundaries influence conductivity in solid oxide electrolytes?,"Based on the provided context, grain boundaries influence conductivity in solid oxide electrolytes in the following ways:
+
+1.  **Resistive Nature:** In perovskite-type solid electrolytes like Li0.5La0.5TiO3 (LLTO), grain boundaries are resistive, which constrains the total ionic conductivity for practical applications (reducing it to ~10-5 S/cm compared to the bulk conductivity of ~10-3 S/cm).
+2.  **Engineering Potential:** Grain boundary engineering can significantly improve ionic conductivity. For example, in compositionally complex perovskite oxides, GB engineering improved ionic conductivity by >70% relative to the baseline, achieving >270% of the state-of-art baseline.
+3.  **Oxygen Potential Distribution:** The existence of grain boundaries slightly sharpens the oxygen potential distribution under SOEC mode and slightly smoothens it under SOFC mode.
+4.  **Oxygen Potential Transitions:** There is an oxygen potential transition at each grain boundary, characterized by a large oxygen potential gradient. Depending on the specific case, these gradients can be much larger than the largest gradient in the bulk or about 10 times smaller than the largest one at the electronic conductivity minimum in the bulk.
+5.  **Degradation:** Grain boundaries with distinct misorientations and structures can behave distinctly, potentially leading to degradation preferentially at specific grain boundaries (e.g., those that are more O2− blocking).",1.0,1.0,0.4
+How does water management affect PEM fuel cell performance?,"Based on the provided context, water management affects PEM fuel cell performance in the following ways:
+
+*   **Optimum Hydration:** Controlling water content is required to ensure the electrolyte membrane maintains an optimum hydration level, which facilitates proton conduction.
+*   **Prevention of Flooding:** Water management must ensure the removal of liquid water from the porous electrodes to prevent pore flooding, which causes mass transport losses.
+*   **Impact of Excessive Humidification:** While gas humidification improves membrane hydration and proton transport, excessive humidification can cause flooding, thereby degrading cell performance.
+*   **Cold Start Challenges:** In low-temperature environments, water produced by electrochemical reactions may freeze. This icing has an adverse influence on operational efficiency and can cause irreversible structural damage, making the delay of icing during startup crucial for enhancing performance.",1.0,1.0,0.6
+How does the gas diffusion layer thickness influence PEM fuel cell performance?,I don't know based on the provided context.,1.0,0.0,0.2
+What causes carbon corrosion in a polymer electrolyte fuel cell cathode?,"Based on the provided context, carbon corrosion in a polymer electrolyte membrane fuel cell (PEMFC) cathode is primarily driven by the **interplay of surface oxide formation on carbon and platinum**. The model predicts that the interaction of carbon surface oxides with transient species, such as **OH radicals**, explains the observed corrosion trends.
+
+Additionally, the context identifies specific operating conditions that lead to extensive carbon corrosion:
+1.  **Start/stop operations** where air leaks into or is present in the anode gas channels, creating potential variation.
+2.  **Fuel starvation** induced by flow mal-distribution in individual cells.
+
+In both of these transient cases, an undesirable oxygen reduction reaction (ORR) at the anode decreases the potential of the ionomer, resulting in a high potential difference (~1.4 V) between the carbon and the ionomer at the opposite cathode, which accelerates carbon corrosion. Under normal operating conditions, carbon corrosion occurs at a less perceptible rate but is accelerated by **platinum** and **water**.",1.0,1.0,1.0
+AVERAGE,,0.982,0.607,0.582

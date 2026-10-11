@@ -11,8 +11,8 @@ with the passages it came from, a self-verification check, and an explicit <i>"I
 
 <p>
 <a href="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml"><img src="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-<img src="https://img.shields.io/badge/tests-53%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="53 tests">
-<img src="https://img.shields.io/badge/ADRs-17-6366f1?style=flat-square" alt="17 ADRs">
+<img src="https://img.shields.io/badge/tests-56%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="56 tests">
+<img src="https://img.shields.io/badge/ADRs-18-6366f1?style=flat-square" alt="18 ADRs">
 <img src="https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13">
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0"></a>
 </p>
@@ -453,16 +453,18 @@ All are fixed, and the evaluator now **aborts** rather than invent a score.
 **5 · The corpus is noisy, but noise isn't what limits it.** Only 145 of the 400 "SOFC" papers
 mention a fuel-cell technology. Indexing just those 145 (3× fewer vectors) gave no measurable gain
 and was slightly worse with expansion ([ADR-017](docs/ADRs/ADR-017-fuel-cell-corpus-filter.md)):
-the questions that fail, fail on both indexes because no paper states the answer. The filter
-remains available as `build_index --fuel-cell-only`.
+the questions that fail, fail on both indexes. The filter remains available as
+`build_index --fuel-cell-only`.
 
 **6 · NER is useful but imprecise.** Test F1 is 0.09, and most papers have no extracted device
 entity (68% raw, 78% after noise filtering) — which is exactly why entities re-rank results
 instead of filtering them (ADR-009).
 
 **7 · The benchmark is small.** Seven questions detect large effects (like finding 1), not
-differences of a few hundredths. Three of the seven still get *"I don't know"*; reading them, the
-retrieved passages genuinely don't answer those questions, which points at corpus coverage.
+differences of a few hundredths. Three of the seven still get *"I don't know"*. A 28-question follow-up
+([ADR-018](docs/ADRs/ADR-018-larger-benchmark-and-retrieval-diagnosis.md)) found 11 abstentions
+and, in 4 of 5 cases checked, an on-topic paper already in the corpus that retrieval ranked
+outside the top 5. The limit is ranking, not coverage.
 
 **8 · The answer path now depends on an API.** If Groq is down or rate-limited, answers fall
 back to local Flan-T5 automatically, so the app keeps working, but with the weaker model.
@@ -493,17 +495,19 @@ timeline
                : 399/400 full papers · 10-config re-evaluation
                : Qwen3 generator · separate verifier
                : corpus filter measured (not adopted)
+               : 28-question benchmark · retrieval diagnosis
 ```
 
 **Next steps**, in order of expected impact:
 
-1. **Corpus coverage.** Filtering out off-topic papers didn't help (ADR-017); the unanswered
-   questions need papers that actually cover them — a targeted fetch on those topics.
-2. **Cross-encoder re-ranking** of the fused top-20 before generation.
-3. **Larger, harder benchmark** — 7 questions is enough to see big effects, not small ones.
-4. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
+1. **Cross-encoder re-ranking** of the fused top-20 before generation, plus a cap on chunks per
+   paper so one paper cannot fill the whole top 5 (ADR-018: the answering paper exists but ranks
+   too low in 4 of 5 abstentions checked).
+2. **Held-out benchmark** — the 28-question set (`--benchmark v2`) was written by the system's
+   author; questions from someone else would be a stronger test.
+3. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
    equation fragments into full-paper chunks.
-5. **A local strong generator** (e.g. a 7–8B model) as an offline-capable alternative to Groq.
+4. **A local strong generator** (e.g. a 7–8B model) as an offline-capable alternative to Groq.
 
 ---
 
@@ -574,10 +578,10 @@ MatSci-RAG/
 │   ├── api/main.py           FastAPI: POST /query, GET /health
 │   └── ui/                   app.py (router) · theme.py · views/{chat, analytics, knowledge_graph}.py
 ├── scripts/                  evaluate_ragas.py · evaluate_rag.py · ingest_full_papers.py
-├── tests/                    53 tests — 44 run everywhere (incl. CI); 9 that need local
+├── tests/                    56 tests — 47 run everywhere (incl. CI); 9 that need local
 │                             data/models skip cleanly on a fresh checkout
 ├── docs/
-│   ├── ADRs/                 17 Architecture Decision Records
+│   ├── ADRs/                 18 Architecture Decision Records
 │   ├── Phases/               step-by-step build guide, Phases 0–8
 │   ├── results/              evaluation CSVs (v2/ = current judge) and logs
 │   ├── MatSci-RAG-Review.md  formal project review
@@ -597,7 +601,7 @@ MatSci-RAG/
 | [RESULTS.md](RESULTS.md) | Every measurement: NER F1, retrieval hit-rate, eval tables, bugs found |
 | [docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md) | Problem statement, literature review, methodology, results |
 | [docs/Project-Explainer.md](docs/Project-Explainer.md) | Glossary of every term, a fully traced example, mentor Q&A |
-| [docs/ADRs/](docs/ADRs/) | 17 decision records — why each technical choice was made |
+| [docs/ADRs/](docs/ADRs/) | 18 decision records — why each technical choice was made |
 | [docs/sample_questions.md](docs/sample_questions.md) | Ready-to-paste demo questions |
 | [docs/archive/](docs/archive/) | Base paper (Maharana et al., 2025) and the Zeroth Review |
 

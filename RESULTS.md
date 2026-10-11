@@ -458,10 +458,10 @@ Raw data: `docs/results/v2/fullpaper_qwen_exp-{off,on}.csv`. Neither run used th
   Answer Relevancy 0.429 → 0.714. It is now on by default in the app.
 - **The verifier now earns its badge.** It runs on a different model (`gpt-oss-20b`) and quotes
   its evidence. For the anode question it quotes the Gibbs–Thomson sentence from the source.
-- **Remaining gaps are coverage, not generation.** Qwen still answers "I don't know" to three
-  questions (temperature effects, grain size and ceria, GDC interlayers), and the retrieved passages
-  for those don't contain the answer. That points to corpus filtering and retrieval as the next
-  levers.
+- **Remaining gaps are not generation.** Qwen still answers "I don't know" to three questions
+  (temperature effects, grain size and ceria, GDC interlayers) because the retrieved passages don't
+  contain the answer. *(Originally attributed to corpus coverage; corrected in ADR-018, which
+  found the limit is retrieval ranking.)*
 
 **Design (ADR-016):** Groq first; automatic fallback to local Flan-T5 on any API failure;
 `GEN_BACKEND=local` for fully offline use. Generator, verifier and judge are three different models.
@@ -485,8 +485,39 @@ Raw data: `docs/results/v2/fuelcell_qwen_exp-{off,on}.csv`.
 - **No measurable gain; the hypothesis is not supported.** Differences are one or two questions
   flipping, inside the noise of 7 questions. With expansion the filtered index is slightly worse.
 - **The failing questions fail on both indexes** (ceria grain size, GDC interlayers, LSCF
-  sintering): no paper in either set states the answer. Coverage, not noise, is the limit.
+  sintering). *(This section first concluded "no paper states the answer"; that was unchecked and
+  is corrected in ADR-018.)*
 
 **Decision (ADR-017):** keep the full corpus as the default; the filter stays available via
-`build_index --fuel-cell-only`. Next lever: fetch more papers on the uncovered topics and grow the
-benchmark.
+`build_index --fuel-cell-only`. Next lever: retrieval ranking (see the next section).
+
+## Phase 10 (continued): A 28-Question Benchmark and a Corrected Diagnosis (2026-10-11)
+
+The 7-question set could not resolve the filter experiment, so the benchmark was extended to 28
+questions (`scripts/benchmark_questions.py`; the 21 new ones were written from corpus titles and
+abstracts, not from retrieval output). Full-text index, `qwen3.8-27b`, expansion off, same judge:
+
+| Set | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+|---|---:|---:|---:|---:|
+| All 28 | 0.982 | 0.607 | 0.582 | 11 / 28 |
+| Original 7 | | 0.429 | | 3 / 7 |
+| New 21 | | 0.667 | | 8 / 21 |
+
+Raw data: `docs/results/bench28/fullpaper_qwen_exp-off.csv`. These numbers are not comparable with the
+7-question tables above (different question mix).
+
+**Finding: the earlier "coverage" explanation was wrong.** For five abstentions I checked whether a
+paper on that topic exists in the corpus and where it ranks. It exists in all five; for four of
+them it is *not* in the top 5 (e.g. the SOFC machine-learning question returns Li-ion battery ML
+papers). In the fifth the right paper fills all five slots and the generator still declines.
+Retrieval ranking, not missing papers, is the main limit. This is five cases, not all eleven.
+
+**Also fixed while measuring:** the evaluator crashed on symbols the Windows console cannot print,
+and a daily Groq judge cap (200,000 tokens) killed two runs, so it now saves per question and
+supports `--resume`.
+
+**Not yet done:** the expansion-on run of the 28 questions reached 19/28 before the cap and its
+partial results were lost. No 28-question expansion figure is claimed.
+
+**Decision (ADR-018):** next lever is cross-encoder re-ranking plus a per-paper chunk cap, ahead of
+any corpus fetch.

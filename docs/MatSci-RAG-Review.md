@@ -431,9 +431,11 @@ Reported honestly rather than inflated:
    checkpoint directory (~1.3GB, local disk only, not part of the tracked project) and several
    stale, already-merged git branches on the remote — both low-risk, low-priority, and left for an
    explicit decision rather than done silently.
-6. **Corpus coverage, not noise.** Only 145 of 400 papers mention fuel cells. A relevance filter
-   was built and measured (ADR-017) and gave no gain; the unanswered questions need new papers
-   that cover them, not fewer off-topic ones.
+6. **Retrieval ranking, not corpus noise or coverage.** Only 145 of 400 papers mention fuel cells,
+   but a relevance filter gave no gain (ADR-017). A 28-question benchmark (ADR-018) showed 11
+   abstentions, and in 4 of 5 checked the answering paper is in the corpus but ranked outside the
+   top 5. Re-ranking and a per-paper chunk cap are the next step; the 5-case check is evidence, not
+   proof.
 7. **A larger benchmark.** Seven questions detect large effects only; the judge varies by about
    ±0.03 between identical retrievals.
 

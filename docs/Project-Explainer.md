@@ -488,16 +488,23 @@ Yes, and it's the cleanest experiment in the project, because only the generator
 index, same retrieved passages, same 7 questions, same judge. Swapping Flan-T5 for `qwen3.8-27b`
 (via Groq) took Answer Relevancy from 0.071 to 0.429, and to 0.714 with query expansion. The anode
 question that Flan-T5 got wrong now gets "Ni coarsening", with the mechanism explained and the
-source sentence quoted by the verifier. The three questions still answered "I don't know" are
-ones where the retrieved passages really don't contain the answer, so the next limit is corpus
-coverage, not the model.
+source sentence quoted by the verifier. The questions still answered "I don't know" are ones where
+the retrieved passages don't contain the answer. I first put that down to the corpus lacking those
+papers; a later check (ADR-018) showed the papers are mostly there but retrieval ranks them too
+low, so the next limit is ranking, not the model and not coverage.
 
 **Q: Most of the corpus is off-topic. Why not just filter it?**
 We tried it and measured it (ADR-017). Keeping only the 145 papers that mention fuel cells cut
 the index from 22,659 to 7,633 vectors, but Answer Relevancy didn't improve: 0.429 either way
-without expansion, and 0.571 vs 0.714 with it. The questions that fail, fail on both indexes,
-because no paper states the answer. So it's a coverage problem, and filtering stays an option
-rather than the default.
+without expansion, and 0.571 vs 0.714 with it. The questions that fail, fail on both indexes, so
+off-topic papers weren't what was hurting. Filtering stays an option rather than the default.
+
+**Q: How do you know retrieval is the problem now, and not the corpus?**
+I checked (ADR-018). On a 28-question benchmark, 11 questions got "I don't know". For five of them
+I looked in the corpus for a paper on exactly that topic: it existed every time, but in four cases
+it wasn't in the top 5 passages (the SOFC machine-learning question returned Li-ion battery papers).
+That is five cases, not eleven, so it's strong evidence rather than proof. It also means my earlier
+"coverage" explanation, written before I'd looked, was wrong; I corrected it in the ADRs.
 
 **Q: Isn't depending on an external API a weakness?**
 It's a deliberate trade-off (ADR-016). Groq runs a model far larger than a laptop GPU can, for
@@ -578,7 +585,8 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
    gracefully without it, but it's a genuine design compromise worth naming, not hiding.
 9. **The corpus is noisier than its name, but coverage is the real limit** — only 145 of the 400
    papers mention a fuel-cell technology. Indexing only those (ADR-017) gave no measurable gain:
-   the questions that fail, fail either way, because no paper in the corpus states the answer.
+   the questions that fail, fail either way. (I first blamed missing papers; ADR-018 found they
+   exist but rank too low in retrieval.)
 
 ---
 
@@ -597,16 +605,16 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | Verifier / judge | `gpt-oss-20b` / `gpt-oss-120b` — three different models, none grades itself |
 | Reliability layers | Self-verification, ambiguity abstention |
 | Retrieval hit-rate | 100% (20/20 hand-written questions, dense retrieval) |
-| Tests | 53 automated (44 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
+| Tests | 56 automated (47 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
 | Base paper | Maharana et al. (2025) — RAG+NER for materials-science literature |
 | Key technique borrowed | ChatExtract (Polak & Morgan) — follow-up verification prompting |
 | NER training data | SOFC-Exp (Brack et al., 2020), 876 labeled sentences |
-| ADRs | 17 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
+| ADRs | 18 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
 | Phase 9 extensions | Multi-turn memory · LLM-judge eval (Groq) · query expansion (Groq) · full-paper ingestion · knowledge graph (pyvis) · analytics dashboard |
 | Phase 10 | Full corpus (399/400 full text) · 8-config re-evaluation · REST API · redesigned UI |
 | End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.714 · Context Precision 0.543 (was 0.071 relevancy with Flan-T5) |
 | Judge / expansion models | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` via the Groq API — the one non-local piece; expansion degrades gracefully, evaluation fails loudly |
-| Biggest known limitation | Corpus coverage: 3 of 7 benchmark questions have no answering paper (filtering noise didn't help, ADR-017); NER precision (~9% F1) second |
+| Biggest known limitation | Retrieval ranking: 11 of 28 benchmark questions abstain, and in 4 of 5 checked the answering paper is in the corpus but outside the top 5 (ADR-018); NER precision (~9% F1) second |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
 review), [`docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md`](ADRs/ADR-009-ner-aware-retrieval-reranking.md)

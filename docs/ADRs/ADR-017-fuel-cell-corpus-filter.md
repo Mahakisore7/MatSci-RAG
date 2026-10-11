@@ -41,13 +41,16 @@ Same 7 questions, same judge, `qwen3.8-27b` generator (`docs/results/v2/fuelcell
   a 7-question benchmark. With expansion the filtered index is slightly worse (the GDC-interlayer
   question was answered on the full corpus and not on the filtered one).
 - **The off-topic papers weren't the problem.** The questions that still fail (grain size and
-  ceria conductivity, GDC interlayers, LSCF sintering temperatures) fail on both indexes, because
-  no paper in either set states the answer. The fix is more relevant papers, not fewer
-  irrelevant ones.
+  ceria conductivity, GDC interlayers, LSCF sintering temperatures) fail on both indexes.
+
+> **Correction (ADR-018):** this ADR first said these fail "because no paper states the answer"
+> and proposed fetching more papers. That was inferred, not checked. A diagnosis on the larger
+> benchmark found on-topic papers already in the corpus that retrieval ranks outside the top 5.
+> The measurements above stand; the explanation and the next step changed.
 
 ## Consequences
 
 - The app keeps serving the full 400-paper index; filtering is a one-flag option.
 - The filtered index is 3× smaller and builds 3× faster, which is useful for experiments.
-- Next lever is **corpus coverage**: a targeted arXiv/Semantic Scholar fetch for the uncovered
-  topics, and a larger benchmark, so smaller effects like this one can be resolved.
+- Next lever is **retrieval ranking** (ADR-018): re-ranking and a per-paper chunk cap. A larger
+  benchmark (also ADR-018) lets smaller effects like this one be resolved.

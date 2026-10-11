@@ -48,3 +48,4 @@ dist/
 
 # Crash logs (auto-generated, not useful to track)
 crash.log
+*.partial.jsonl
