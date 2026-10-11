@@ -228,6 +228,7 @@ graph into an interactive, physics-simulated HTML visualization).
 | **`verify_answer()`** | The function implementing Section 1.12 |
 | **`build_prompt()`** | Assembles the retrieved context + grounding instructions + chat history + question into the final prompt sent to Flan-T5 |
 | **`fuse_and_rerank()`** | The RRF + NER-boost logic (Section 1.6), lives in `src/rag/ner_utils.py` |
+| **`cross_encoder_rerank()`** | Second-stage re-scoring of the fused top 20 with a local cross-encoder (ADR-019), in `src/rag/rerank.py` |
 | **`expand_query()`** | Implements Section 1.14 (query rewriting), lives in `src/rag/query_expansion.py` |
 | **ChromaDB collection `sofc_papers`** | The actual name of the vector index/table inside ChromaDB |
 | **`k`** | Standard retrieval shorthand for "how many results to return" (this project defaults to k=5) |
@@ -290,7 +291,8 @@ flowchart TB
 form using the last few turns of chat history (Section 1.14) — otherwise the raw question is used
 as-is. That (possibly rewritten) query is embedded and searched against ChromaDB (dense) *and*
 tokenized and searched with BM25 (keyword), in parallel. Both ranked lists are fused (RRF) and
-boosted by NER entity overlap. The system checks whether the retrieved evidence looks ambiguous; if
+boosted by NER entity overlap, and a cross-encoder then re-scores the top 20 and keeps the best 5
+(ADR-019). The system checks whether the retrieved evidence looks ambiguous; if
 not (the usual case), it builds a strict, context-only prompt — using the *original*, unexpanded
 question, plus recent chat history — and asks Flan-T5 to answer. That answer is then independently
 re-checked by asking the same model "does the context actually support this?" Finally the UI shows
@@ -506,6 +508,17 @@ it wasn't in the top 5 passages (the SOFC machine-learning question returned Li-
 That is five cases, not eleven, so it's strong evidence rather than proof. It also means my earlier
 "coverage" explanation, written before I'd looked, was wrong; I corrected it in the ADRs.
 
+**Q: What's a cross-encoder and why did it help so much?**
+The first stage embeds the query and each passage separately and compares the vectors, which is fast
+but coarse: it can tell two texts share vocabulary, not that one answers the other. A cross-encoder
+reads the query and one passage together and outputs a relevance score, which is much more accurate
+but too slow to run over 20,000 passages, so it only re-scores the 20 candidates the first stage
+found. On 21 questions with known answering papers, the right paper reached the top 5 for 20 of 21
+questions instead of 15 (hit@5 0.714 to 0.952), for about +100 ms per query. The caveat: the "known
+answering papers" were chosen by me from the titles, and I have not yet measured the effect on the
+judged answer quality, because that needs more Groq judge tokens than the daily free allowance
+leaves today.
+
 **Q: Isn't depending on an external API a weakness?**
 It's a deliberate trade-off (ADR-016). Groq runs a model far larger than a laptop GPU can, for
 free, in about a second. To contain the risk: any API failure falls back to local Flan-T5
@@ -605,16 +618,16 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | Verifier / judge | `gpt-oss-20b` / `gpt-oss-120b` — three different models, none grades itself |
 | Reliability layers | Self-verification, ambiguity abstention |
 | Retrieval hit-rate | 100% (20/20 hand-written questions, dense retrieval) |
-| Tests | 56 automated (47 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
+| Tests | 60 automated (51 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
 | Base paper | Maharana et al. (2025) — RAG+NER for materials-science literature |
 | Key technique borrowed | ChatExtract (Polak & Morgan) — follow-up verification prompting |
 | NER training data | SOFC-Exp (Brack et al., 2020), 876 labeled sentences |
-| ADRs | 18 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
+| ADRs | 19 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
 | Phase 9 extensions | Multi-turn memory · LLM-judge eval (Groq) · query expansion (Groq) · full-paper ingestion · knowledge graph (pyvis) · analytics dashboard |
 | Phase 10 | Full corpus (399/400 full text) · 8-config re-evaluation · REST API · redesigned UI |
 | End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.714 · Context Precision 0.543 (was 0.071 relevancy with Flan-T5) |
 | Judge / expansion models | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` via the Groq API — the one non-local piece; expansion degrades gracefully, evaluation fails loudly |
-| Biggest known limitation | Retrieval ranking: 11 of 28 benchmark questions abstain, and in 4 of 5 checked the answering paper is in the corpus but outside the top 5 (ADR-018); NER precision (~9% F1) second |
+| Biggest known limitation | Judged end-to-end quality of the new re-ranker is unmeasured (needs a fresh Groq judge budget); before it, 11 of 28 benchmark questions abstained, mostly from retrieval ranking (ADR-018, ADR-019); NER precision (~9% F1) next |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
 review), [`docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md`](ADRs/ADR-009-ner-aware-retrieval-reranking.md)

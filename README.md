@@ -11,8 +11,8 @@ with the passages it came from, a self-verification check, and an explicit <i>"I
 
 <p>
 <a href="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml"><img src="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-<img src="https://img.shields.io/badge/tests-56%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="56 tests">
-<img src="https://img.shields.io/badge/ADRs-18-6366f1?style=flat-square" alt="18 ADRs">
+<img src="https://img.shields.io/badge/tests-60%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="60 tests">
+<img src="https://img.shields.io/badge/ADRs-19-6366f1?style=flat-square" alt="19 ADRs">
 <img src="https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13">
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0"></a>
 </p>
@@ -107,7 +107,7 @@ flowchart TB
 
     subgraph ON["ONLINE PIPELINE · every question"]
         direction LR
-        RET["Hybrid retrieval<br/>dense + BM25 + NER boost"] --> GEN["Grounded generation<br/>Qwen3 · Flan-T5 fallback"] --> VER["Self-verification<br/>+ abstention"]
+        RET["Hybrid retrieval<br/>dense + BM25 + NER boost<br/>+ cross-encoder re-rank"] --> GEN["Grounded generation<br/>Qwen3 · Flan-T5 fallback"] --> VER["Self-verification<br/>+ abstention"]
     end
 
     subgraph IF["INTERFACES"]
@@ -198,6 +198,7 @@ sequenceDiagram
     R->>K: dense top-20 + BM25 top-20
     K-->>R: candidates
     R->>R: RRF fusion + NER-overlap boost
+    R->>R: cross-encoder re-ranks the top 20
     R-->>I: top-5 passages
     I->>A: entities in the top-5
     alt too many distinct materials
@@ -228,14 +229,22 @@ flowchart LR
     D --> RRF["Reciprocal Rank Fusion<br/>Σ 1 / (60 + rank)"]
     B --> RRF
     E -->|"+0.02 per matching<br/>paper entity"| RRF
-    RRF --> T["Dedupe → top-k"]
+    RRF --> T["Dedupe → top 20"]
+    T --> X["Cross-encoder re-rank<br/>MiniLM-L6 · local"]
+    X --> K["Top-k passages"]
 
     style RRF fill:#fff7ed,stroke:#ea580c,color:#431407
+    style X fill:#ecfdf5,stroke:#10b981,color:#052e16
     style E fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
 ```
 
 A paper with no extracted entities can still rank first on text alone; entities can only lift
 relevant papers, never remove one. Derivation in [ADR-009](docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md).
+
+A cross-encoder then re-scores the fused top 20 by reading each query–passage pair together, which
+the first stage cannot do ([ADR-019](docs/ADRs/ADR-019-cross-encoder-reranking.md)). On 21 questions
+with known answering papers it raised hit@5 from 0.714 to 0.952 and MRR from 0.448 to 0.849, for
+about +100 ms per query.
 
 ### Evaluation harness
 
@@ -312,6 +321,8 @@ environment variables (or `.env`):
 | `GROQ_GEN_MODEL` | `qwen/qwen3.8-27b` | Answer generator |
 | `GROQ_VERIFY_MODEL` | `openai/gpt-oss-20b` | Self-verification (deliberately a different model) |
 | `GEN_MODEL_NAME` | `google/flan-t5-base` | Local generator, and the fallback when Groq is unavailable |
+| `USE_RERANK` | `1` | Cross-encoder re-ranking of retrieved passages; `0` disables it |
+| `RERANK_MODEL` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Local cross-encoder used for re-ranking |
 | `GROQ_API_KEY` | — | Enables query expansion and evaluation |
 | `GROQ_EXPANSION_MODEL` | `openai/gpt-oss-20b` | Query rewriting (fast; on the live path) |
 | `GROQ_JUDGE_MODEL` | `openai/gpt-oss-120b` | Evaluation judge |
@@ -464,7 +475,8 @@ instead of filtering them (ADR-009).
 differences of a few hundredths. Three of the seven still get *"I don't know"*. A 28-question follow-up
 ([ADR-018](docs/ADRs/ADR-018-larger-benchmark-and-retrieval-diagnosis.md)) found 11 abstentions
 and, in 4 of 5 cases checked, an on-topic paper already in the corpus that retrieval ranked
-outside the top 5. The limit is ranking, not coverage.
+outside the top 5. The limit is ranking, not coverage, and cross-encoder
+re-ranking ([ADR-019](docs/ADRs/ADR-019-cross-encoder-reranking.md)) now closes most of that gap.
 
 **8 · The answer path now depends on an API.** If Groq is down or rate-limited, answers fall
 back to local Flan-T5 automatically, so the app keeps working, but with the weaker model.
@@ -496,13 +508,15 @@ timeline
                : Qwen3 generator · separate verifier
                : corpus filter measured (not adopted)
                : 28-question benchmark · retrieval diagnosis
+               : cross-encoder re-ranking
 ```
 
 **Next steps**, in order of expected impact:
 
-1. **Cross-encoder re-ranking** of the fused top-20 before generation, plus a cap on chunks per
-   paper so one paper cannot fill the whole top 5 (ADR-018: the answering paper exists but ranks
-   too low in 4 of 5 abstentions checked).
+1. **Judged end-to-end run with re-ranking.** Re-ranking is built and lifts retrieval hit@5 from
+   0.714 to 0.952 (ADR-019), but its effect on Answer Relevancy has not been judged yet: a
+   28-question run needs most of Groq's 200,000-token daily judge budget. Run it with `--resume`.
+   Also try a larger candidate pool and a larger cross-encoder.
 2. **Held-out benchmark** — the 28-question set (`--benchmark v2`) was written by the system's
    author; questions from someone else would be a stronger test.
 3. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
@@ -572,16 +586,17 @@ MatSci-RAG/
 │   ├── rag/
 │   │   ├── build_index.py        abstract or full-paper index (with abstract fallback)
 │   │   ├── hybrid_retrieval.py   dense + BM25 candidate pools
+│   │   ├── rerank.py             cross-encoder re-ranking · per-paper cap
 │   │   ├── ner_utils.py          entity cleaning · RRF + NER boost · ambiguity check
 │   │   ├── query_expansion.py    Groq query rewriting
 │   │   └── rag_query.py          answer_query() · verify_answer()
 │   ├── api/main.py           FastAPI: POST /query, GET /health
 │   └── ui/                   app.py (router) · theme.py · views/{chat, analytics, knowledge_graph}.py
 ├── scripts/                  evaluate_ragas.py · evaluate_rag.py · ingest_full_papers.py
-├── tests/                    56 tests — 47 run everywhere (incl. CI); 9 that need local
+├── tests/                    60 tests — 51 run everywhere (incl. CI); 9 that need local
 │                             data/models skip cleanly on a fresh checkout
 ├── docs/
-│   ├── ADRs/                 18 Architecture Decision Records
+│   ├── ADRs/                 19 Architecture Decision Records
 │   ├── Phases/               step-by-step build guide, Phases 0–8
 │   ├── results/              evaluation CSVs (v2/ = current judge) and logs
 │   ├── MatSci-RAG-Review.md  formal project review
@@ -601,7 +616,7 @@ MatSci-RAG/
 | [RESULTS.md](RESULTS.md) | Every measurement: NER F1, retrieval hit-rate, eval tables, bugs found |
 | [docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md) | Problem statement, literature review, methodology, results |
 | [docs/Project-Explainer.md](docs/Project-Explainer.md) | Glossary of every term, a fully traced example, mentor Q&A |
-| [docs/ADRs/](docs/ADRs/) | 18 decision records — why each technical choice was made |
+| [docs/ADRs/](docs/ADRs/) | 19 decision records — why each technical choice was made |
 | [docs/sample_questions.md](docs/sample_questions.md) | Ready-to-paste demo questions |
 | [docs/archive/](docs/archive/) | Base paper (Maharana et al., 2025) and the Zeroth Review |
 

@@ -521,3 +521,36 @@ partial results were lost. No 28-question expansion figure is claimed.
 
 **Decision (ADR-018):** next lever is cross-encoder re-ranking plus a per-paper chunk cap, ahead of
 any corpus fetch.
+
+## Phase 10 (continued): Cross-Encoder Re-Ranking (2026-10-11)
+
+ADR-018 located the bottleneck in retrieval ranking. A cross-encoder
+(`cross-encoder/ms-marco-MiniLM-L-6-v2`, local) now re-scores the fused top-20 candidates and keeps
+the best 5. Measured without any LLM judge, on the 21 benchmark-v2 questions that have gold target
+papers (`scripts/retrieval_gold.py`; written by the system's author from corpus titles):
+
+| Configuration | hit@5 | MRR | Distinct papers in top 5 |
+|---|---:|---:|---:|
+| Baseline (RRF + NER boost) | 0.714 | 0.448 | 2.71 |
+| Cap 2 chunks per paper | 0.762 | 0.463 | 3.43 |
+| **Cross-encoder** | **0.952** | **0.849** | 2.86 |
+| Cross-encoder + cap 2 | 0.952 | 0.849 | 3.52 |
+
+Raw data: `docs/results/bench28/retrieval_gold.json`. Cost: about +100 ms per query.
+
+**Findings**
+- The answering paper reaches the top 5 for 20 of 21 questions (baseline: 15 of 21).
+- The per-paper cap increases source diversity but adds no hits once re-ranking is on, so it stays
+  optional and off by default.
+- Smoke test on the live pipeline: the SOEC-durability question, an abstention before, is now
+  answered from the right paper. The SOFC machine-learning question now retrieves the right paper
+  but the generator still says "I don't know": retrieval was necessary, not sufficient.
+- The one remaining miss (gas-diffusion-layer thickness) has its target paper outside the
+  20-candidate pool, so a larger pool is the next thing to try.
+
+**Not yet measured:** the judged end-to-end effect (Answer Relevancy, abstention count) of
+re-ranking. A 28-question run uses about 190,000 of Groq's 200,000 daily judge tokens, so it needs a
+day when the cap has reset; the evaluator now supports `--resume`. No end-to-end figure is claimed
+for re-ranking until then.
+
+**Decision (ADR-019):** re-ranking is on by default (`USE_RERANK=0` disables it).

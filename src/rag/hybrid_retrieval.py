@@ -10,6 +10,9 @@ from src.core.logging_config import get_logger
 # pyrefly: ignore [missing-import]
 from src.rag.ner_utils import facts_by_paper_id, fuse_and_rerank, load_structured_facts
 
+# pyrefly: ignore [missing-import]
+from src.rag.rerank import cap_per_paper, cross_encoder_rerank
+
 log = get_logger(__name__)
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -57,13 +60,22 @@ bm25 = BM25Okapi(tokenized_corpus)
 _facts_by_paper_id = facts_by_paper_id(load_structured_facts())
 
 
-def hybrid_retrieve(query: str, k: int = 5, use_ner_boost: bool = True) -> list[Document]:
+def hybrid_retrieve(
+    query: str,
+    k: int = 5,
+    use_ner_boost: bool = True,
+    use_rerank: bool = False,
+    per_paper_cap: int | None = None,
+) -> list[Document]:
     """
     Retrieves documents using both Dense (Vector) and BM25 (Keyword) search,
     fuses them via Reciprocal Rank Fusion, and — optionally — boosts papers
     whose NER-extracted materials/devices/experiments are mentioned in the
     query. See ADR-009 for why this is a soft boost rather than a hard
     metadata filter.
+
+    Optional second stage (ADR-019): ``use_rerank`` re-scores the fused pool with a
+    cross-encoder, and ``per_paper_cap`` limits chunks per paper in the final k.
     """
     log.info(f"Hybrid retrieval for: {query}")
 
@@ -82,7 +94,13 @@ def hybrid_retrieve(query: str, k: int = 5, use_ner_boost: bool = True) -> list[
 
     # ── C. Fuse (RRF) + NER-aware rerank + dedupe ──
     facts = _facts_by_paper_id if use_ner_boost else {}
-    final_docs = fuse_and_rerank(dense_results, bm25_results, query, facts, k)
+    second_stage = use_rerank or per_paper_cap is not None
+    final_docs = fuse_and_rerank(
+        dense_results, bm25_results, query, facts, pool_k if second_stage else k
+    )
+    if use_rerank:
+        final_docs = cross_encoder_rerank(query, final_docs)
+    final_docs = cap_per_paper(final_docs, per_paper_cap)[:k]
 
     log.info(
         f"Fused {len(dense_results)} dense and {len(bm25_results)} "

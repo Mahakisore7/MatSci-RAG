@@ -1,0 +1,34 @@
+[
+  {
+    "config": "baseline (RRF + NER)",
+    "hit_at_k": 0.714,
+    "mrr": 0.448,
+    "distinct_papers": 2.71,
+    "questions": 21,
+    "k": 5
+  },
+  {
+    "config": "cap 2 per paper",
+    "hit_at_k": 0.762,
+    "mrr": 0.463,
+    "distinct_papers": 3.43,
+    "questions": 21,
+    "k": 5
+  },
+  {
+    "config": "cross-encoder",
+    "hit_at_k": 0.952,
+    "mrr": 0.849,
+    "distinct_papers": 2.86,
+    "questions": 21,
+    "k": 5
+  },
+  {
+    "config": "cross-encoder + cap 2",
+    "hit_at_k": 0.952,
+    "mrr": 0.849,
+    "distinct_papers": 3.52,
+    "questions": 21,
+    "k": 5
+  }
+]

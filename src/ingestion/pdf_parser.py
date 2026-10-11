@@ -231,10 +231,12 @@ def parse_all_pdfs(
                 out.write(json.dumps(record) + "\n")
                 parsed += 1
                 if (i + 1) % 50 == 0:
-                    log.info(f"Progress: {i+1}/{len(pdf_files)} ({parsed} parsed, {failed} failed)")
+                    log.info(
+                        f"Progress: {i + 1}/{len(pdf_files)} ({parsed} parsed, {failed} failed)"
+                    )
             else:
                 failed += 1
-                log.warning(f"[{i+1}/{len(pdf_files)}] Failed to parse: {filename}")
+                log.warning(f"[{i + 1}/{len(pdf_files)}] Failed to parse: {filename}")
 
     log.info(f"Done. Parsed: {parsed}, Failed/skipped: {failed}")
     log.info(f"Output -> {output_path}")

@@ -193,7 +193,7 @@ flowchart TB
 
     subgraph GEN["GENERATION + RELIABILITY LAYER — Phase 5 / 8"]
         direction TB
-        query["User query"] --> hybrid["hybrid_retrieve()<br/>dense + BM25 → RRF fusion<br/>+ NER entity-overlap boost"]
+        query["User query"] --> hybrid["hybrid_retrieve()<br/>dense + BM25 → RRF fusion<br/>+ NER boost → cross-encoder re-rank"]
         chroma --> hybrid
         hybrid --> amb{"detect_ambiguity()<br/>too many distinct<br/>materials?"}
         amb -->|"no (usual case)"| prompt["build_prompt()<br/>context-only instruction"]
@@ -256,7 +256,8 @@ sequenceDiagram
     B-->>H: ranked candidates
     H->>N: fuse_and_rerank(dense, bm25, query, facts)
     Note over N: Reciprocal Rank Fusion score<br/>+ bonus per NER entity mentioned in query
-    N-->>H: top-k reranked passages
+    N-->>H: fused top-20 passages
+    H->>H: cross-encoder re-scores top 20 (ADR-019)
     H-->>U: retrieved passages
     U->>A: check retrieved passages
     alt too many distinct materials (rare)
@@ -434,8 +435,9 @@ Reported honestly rather than inflated:
 6. **Retrieval ranking, not corpus noise or coverage.** Only 145 of 400 papers mention fuel cells,
    but a relevance filter gave no gain (ADR-017). A 28-question benchmark (ADR-018) showed 11
    abstentions, and in 4 of 5 checked the answering paper is in the corpus but ranked outside the
-   top 5. Re-ranking and a per-paper chunk cap are the next step; the 5-case check is evidence, not
-   proof.
+   top 5. A cross-encoder re-ranker (ADR-019) lifted hit@5 from 0.714 to 0.952 on 21 gold-labelled
+   questions; its judged end-to-end effect is still unmeasured, and the gold labels were written by
+   the system's author.
 7. **A larger benchmark.** Seven questions detect large effects only; the judge varies by about
    ±0.03 between identical retrievals.
 

@@ -38,6 +38,7 @@ Each ADR follows this standard structure:
 | [ADR-016](ADR-016-groq-generator-with-local-fallback.md) | Groq-Hosted Generator with Local Fallback, and a Separate Verifier | Accepted |
 | [ADR-017](ADR-017-fuel-cell-corpus-filter.md) | Fuel-Cell Corpus Filter — Built, Measured, Not the Default | Accepted (optional) |
 | [ADR-018](ADR-018-larger-benchmark-and-retrieval-diagnosis.md) | A 28-Question Benchmark, and What It Says About the Real Bottleneck | Accepted |
+| [ADR-019](ADR-019-cross-encoder-reranking.md) | Cross-Encoder Re-Ranking After Hybrid Retrieval | Accepted |
 
 ## Naming Convention
 

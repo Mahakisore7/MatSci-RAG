@@ -95,7 +95,7 @@ def download_pdfs(
 
         # Idempotent: skip if already downloaded
         if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 1024:
-            log.debug(f"[{i+1}/{len(papers)}] Skip (exists): {arxiv_id}")
+            log.debug(f"[{i + 1}/{len(papers)}] Skip (exists): {arxiv_id}")
             skipped += 1
             continue
 
@@ -106,7 +106,7 @@ def download_pdfs(
             results = list(client.results(search))
 
             if not results:
-                log.warning(f"[{i+1}/{len(papers)}] Not found on arXiv: {base_id}")
+                log.warning(f"[{i + 1}/{len(papers)}] Not found on arXiv: {base_id}")
                 skipped += 1
                 continue
 
@@ -119,10 +119,10 @@ def download_pdfs(
             with open(pdf_path, "wb") as f:
                 f.write(response.content)
             downloaded += 1
-            log.info(f"[{i+1}/{len(papers)}] Downloaded: {arxiv_id} — {title[:60]}")
+            log.info(f"[{i + 1}/{len(papers)}] Downloaded: {arxiv_id} — {title[:60]}")
 
         except Exception as e:
-            log.warning(f"[{i+1}/{len(papers)}] Failed {arxiv_id}: {e}")
+            log.warning(f"[{i + 1}/{len(papers)}] Failed {arxiv_id}: {e}")
             skipped += 1
 
         time.sleep(delay)

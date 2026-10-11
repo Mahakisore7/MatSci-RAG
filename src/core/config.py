@@ -19,6 +19,10 @@ GEN_BACKEND = os.getenv("GEN_BACKEND", "groq")
 GROQ_GEN_MODEL = os.getenv("GROQ_GEN_MODEL", "qwen/qwen3.8-27b")
 GROQ_VERIFY_MODEL = os.getenv("GROQ_VERIFY_MODEL", "openai/gpt-oss-20b")
 
+# Second-stage ranking (ADR-019): a local cross-encoder re-scores the fused candidates.
+RERANK_MODEL = os.getenv("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+USE_RERANK = os.getenv("USE_RERANK", "1") == "1"  # set USE_RERANK=0 to compare without it
+
 
 def active_generator() -> str:
     """The model that will answer, given the backend setting and whether a Groq key exists."""

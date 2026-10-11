@@ -13,7 +13,7 @@ from langchain_huggingface import HuggingFaceEmbeddings  # noqa: I001
 from langchain_chroma import Chroma
 
 # pyrefly: ignore [missing-import]
-from src.core.config import GROQ_GEN_MODEL, GROQ_VERIFY_MODEL
+from src.core.config import GROQ_GEN_MODEL, GROQ_VERIFY_MODEL, USE_RERANK
 
 # pyrefly: ignore [missing-import]
 from src.rag.generation import generate
@@ -120,7 +120,9 @@ def answer_query(
     if use_hybrid:
         from src.rag.hybrid_retrieval import hybrid_retrieve
 
-        retrieved_docs = hybrid_retrieve(search_query, k=5, use_ner_boost=True)
+        retrieved_docs = hybrid_retrieve(
+            search_query, k=5, use_ner_boost=True, use_rerank=USE_RERANK
+        )
     else:
         bge_query = BGE_QUERY_PREFIX + search_query
         retrieved_docs = retriever.invoke(bge_query)
