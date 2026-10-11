@@ -590,8 +590,8 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
    this project now has real numbers for both, including where they conflict.
 7. **The benchmark is small** — 7 questions, and the judge itself varies by about ±0.03 between
    identical retrievals. It detects large effects (like #4), not small differences. (Test coverage,
-   once a gap here, is now 46 tests: query expansion, PDF parsing, index building and the API
-   contract are all covered.)
+   once a gap here, is now 60 tests: query expansion, PDF parsing, index building, the API
+   contract, generation fallback, re-ranking and the benchmark definitions are all covered.)
 8. **Query expansion and the LLM-judge evaluator depend on an external API (Groq)** — the one
    deliberate departure from this project's otherwise fully-local design, with real tradeoffs
    (network dependency, rate limits, a model you don't control the weights of). Both degrade
