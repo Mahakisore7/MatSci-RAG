@@ -465,3 +465,28 @@ Raw data: `docs/results/v2/fullpaper_qwen_exp-{off,on}.csv`. Neither run used th
 
 **Design (ADR-016):** Groq first; automatic fallback to local Flan-T5 on any API failure;
 `GEN_BACKEND=local` for fully offline use. Generator, verifier and judge are three different models.
+
+## Phase 10 (continued): Filtering the Corpus to Fuel-Cell Papers (2026-10-11)
+
+Only 145 of 400 papers mention a fuel-cell technology. Hypothesis: the off-topic majority crowds
+relevant chunks out of retrieval. Test: rebuild the full-text index from those 145 papers only
+(7,633 vectors vs 22,659) and re-run the Qwen evaluation.
+
+| Index | Expansion | Faithfulness | Answer Relevancy | Context Precision |
+|---|:---:|---:|---:|---:|
+| Full text, 400 papers | | 1.000 | 0.429 | 0.543 |
+| Full text, 400 papers | on | 0.857 | **0.714** | 0.543 |
+| Fuel-cell only, 145 papers | | 0.857 | 0.429 | **0.600** |
+| Fuel-cell only, 145 papers | on | 0.786 | 0.571 | 0.514 |
+
+Raw data: `docs/results/v2/fuelcell_qwen_exp-{off,on}.csv`.
+
+**Findings**
+- **No measurable gain; the hypothesis is not supported.** Differences are one or two questions
+  flipping, inside the noise of 7 questions. With expansion the filtered index is slightly worse.
+- **The failing questions fail on both indexes** (ceria grain size, GDC interlayers, LSCF
+  sintering): no paper in either set states the answer. Coverage, not noise, is the limit.
+
+**Decision (ADR-017):** keep the full corpus as the default; the filter stays available via
+`build_index --fuel-cell-only`. Next lever: fetch more papers on the uncovered topics and grow the
+benchmark.

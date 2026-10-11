@@ -492,6 +492,13 @@ source sentence quoted by the verifier. The three questions still answered "I do
 ones where the retrieved passages really don't contain the answer, so the next limit is corpus
 coverage, not the model.
 
+**Q: Most of the corpus is off-topic. Why not just filter it?**
+We tried it and measured it (ADR-017). Keeping only the 145 papers that mention fuel cells cut
+the index from 22,659 to 7,633 vectors, but Answer Relevancy didn't improve: 0.429 either way
+without expansion, and 0.571 vs 0.714 with it. The questions that fail, fail on both indexes,
+because no paper states the answer. So it's a coverage problem, and filtering stays an option
+rather than the default.
+
 **Q: Isn't depending on an external API a weakness?**
 It's a deliberate trade-off (ADR-016). Groq runs a model far larger than a laptop GPU can, for
 free, in about a second. To contain the risk: any API failure falls back to local Flan-T5
@@ -569,9 +576,9 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
    deliberate departure from this project's otherwise fully-local design, with real tradeoffs
    (network dependency, rate limits, a model you don't control the weights of). Both degrade
    gracefully without it, but it's a genuine design compromise worth naming, not hiding.
-9. **The corpus is noisier than its name** — only 144 of the 400 papers explicitly mention fuel
-   cells, SOFCs or solid oxide; the arXiv keyword search also pulled in batteries, catalysis and
-   some unrelated work.
+9. **The corpus is noisier than its name, but coverage is the real limit** — only 145 of the 400
+   papers mention a fuel-cell technology. Indexing only those (ADR-017) gave no measurable gain:
+   the questions that fail, fail either way, because no paper in the corpus states the answer.
 
 ---
 
@@ -590,16 +597,16 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | Verifier / judge | `gpt-oss-20b` / `gpt-oss-120b` — three different models, none grades itself |
 | Reliability layers | Self-verification, ambiguity abstention |
 | Retrieval hit-rate | 100% (20/20 hand-written questions, dense retrieval) |
-| Tests | 50 automated (41 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
+| Tests | 53 automated (44 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
 | Base paper | Maharana et al. (2025) — RAG+NER for materials-science literature |
 | Key technique borrowed | ChatExtract (Polak & Morgan) — follow-up verification prompting |
 | NER training data | SOFC-Exp (Brack et al., 2020), 876 labeled sentences |
-| ADRs | 16 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
+| ADRs | 17 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
 | Phase 9 extensions | Multi-turn memory · LLM-judge eval (Groq) · query expansion (Groq) · full-paper ingestion · knowledge graph (pyvis) · analytics dashboard |
 | Phase 10 | Full corpus (399/400 full text) · 8-config re-evaluation · REST API · redesigned UI |
 | End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.714 · Context Precision 0.543 (was 0.071 relevancy with Flan-T5) |
 | Judge / expansion models | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` via the Groq API — the one non-local piece; expansion degrades gracefully, evaluation fails loudly |
-| Biggest known limitation | Corpus coverage and noise (only 144/400 papers are about fuel cells); NER precision (~9% F1) second |
+| Biggest known limitation | Corpus coverage: 3 of 7 benchmark questions have no answering paper (filtering noise didn't help, ADR-017); NER precision (~9% F1) second |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
 review), [`docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md`](ADRs/ADR-009-ner-aware-retrieval-reranking.md)

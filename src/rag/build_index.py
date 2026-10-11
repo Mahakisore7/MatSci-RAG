@@ -24,6 +24,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src.core.logging_config import get_logger
 
 # pyrefly: ignore [missing-import]
+from src.rag.corpus_filter import filter_corpus
+
+# pyrefly: ignore [missing-import]
 from src.rag.ner_utils import clean_entities
 
 log = get_logger(__name__)
@@ -224,9 +227,18 @@ if __name__ == "__main__":
         help="'abstract' uses sofc_corpus.jsonl (default). "
         "'full_paper' uses full_papers.jsonl (requires pdf_parser.py output).",
     )
+    parser.add_argument(
+        "--fuel-cell-only",
+        action="store_true",
+        help="Index only papers whose title/abstract mention fuel cells (ADR-017).",
+    )
     args = parser.parse_args()
 
     facts = load_facts(FACTS_PATH)
+    corpus = load_corpus(CORPUS_PATH)
+    if args.fuel_cell_only:
+        corpus = filter_corpus(corpus)
+        log.info(f"Fuel-cell filter: keeping {len(corpus)} papers")
 
     if args.source == "full_paper":
         log.info("Building index from FULL PAPER sections...")
@@ -236,10 +248,10 @@ if __name__ == "__main__":
                 "Run: uv run python -m src.ingestion.pdf_parser first."
             )
         full_papers = load_full_papers(FULL_PAPERS_PATH)
-        chunks = build_full_paper_chunks(full_papers, load_corpus(CORPUS_PATH), facts)
+        full_papers = {pid: p for pid, p in full_papers.items() if pid in corpus}
+        chunks = build_full_paper_chunks(full_papers, corpus, facts)
     else:
         log.info("Building index from ABSTRACTS (default)...")
-        corpus = load_corpus(CORPUS_PATH)
         docs = build_documents(corpus, facts)
         chunks = chunk_documents(docs, chunk_size=CHUNK_SIZE_ABSTRACT)
 

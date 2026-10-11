@@ -27,6 +27,11 @@ CORPUS_PATH = "data/sofc_corpus.jsonl"
 FULL_PAPERS_PATH = "data/full_papers.jsonl"
 FACTS_PATH = "data/structured_facts.jsonl"
 EVAL_GLOB = "docs/results/v2/*.csv"
+INDEX_LABELS = {
+    "abstracts": "Abstracts",
+    "fullpaper": "Full text",
+    "fuelcell": "Fuel-cell only",
+}
 GENERATOR_LABELS = {
     "base": "flan-t5-base",
     "large": "flan-t5-large",
@@ -66,17 +71,17 @@ def count_full_papers() -> int:
 def load_evaluations() -> dict[str, pd.DataFrame]:
     """One DataFrame per eval run, keyed by a readable configuration name.
 
-    Expects files named <abstracts|fullpaper>_<generator>_exp-<on|off>.csv.
+    Expects files named <abstracts|fullpaper|fuelcell>_<generator>_exp-<on|off>.csv.
     """
     runs = {}
     for path in sorted(glob.glob(EVAL_GLOB)):
         stem = os.path.splitext(os.path.basename(path))[0]
-        m = re.fullmatch(r"(abstracts|fullpaper)_(\w+)_exp-(on|off)", stem)
+        m = re.fullmatch(r"(abstracts|fullpaper|fuelcell)_(\w+)_exp-(on|off)", stem)
         if not m:
             continue
         corpus_name, gen, exp = m.groups()
         name = (
-            f"{'Full text' if corpus_name == 'fullpaper' else 'Abstracts'} · "
+            f"{INDEX_LABELS[corpus_name]} · "
             f"{GENERATOR_LABELS.get(gen, gen)}"
             f"{' · expansion' if exp == 'on' else ''}"
         )

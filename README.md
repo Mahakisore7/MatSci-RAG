@@ -11,8 +11,8 @@ with the passages it came from, a self-verification check, and an explicit <i>"I
 
 <p>
 <a href="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml"><img src="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-<img src="https://img.shields.io/badge/tests-50%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="50 tests">
-<img src="https://img.shields.io/badge/ADRs-16-6366f1?style=flat-square" alt="16 ADRs">
+<img src="https://img.shields.io/badge/tests-53%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="53 tests">
+<img src="https://img.shields.io/badge/ADRs-17-6366f1?style=flat-square" alt="17 ADRs">
 <img src="https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13">
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0"></a>
 </p>
@@ -450,9 +450,11 @@ model's 404s were recorded as 0.0 scores; query expansion silently fell back to 
 for the same reason; and the chat UI could not import its own package after a restructure.
 All are fixed, and the evaluator now **aborts** rather than invent a score.
 
-**5 · The corpus is noisier than its name.** Only 144 of the 400 "SOFC" papers explicitly mention
-fuel cells, SOFCs or solid oxide; arXiv keyword search also returned batteries, catalysis and
-some unrelated work.
+**5 · The corpus is noisy, but noise isn't what limits it.** Only 145 of the 400 "SOFC" papers
+mention a fuel-cell technology. Indexing just those 145 (3× fewer vectors) gave no measurable gain
+and was slightly worse with expansion ([ADR-017](docs/ADRs/ADR-017-fuel-cell-corpus-filter.md)):
+the questions that fail, fail on both indexes because no paper states the answer. The filter
+remains available as `build_index --fuel-cell-only`.
 
 **6 · NER is useful but imprecise.** Test F1 is 0.09, and most papers have no extracted device
 entity (68% raw, 78% after noise filtering) — which is exactly why entities re-rank results
@@ -490,12 +492,13 @@ timeline
     Phase 10   : REST API · redesigned UI · configurable models
                : 399/400 full papers · 10-config re-evaluation
                : Qwen3 generator · separate verifier
+               : corpus filter measured (not adopted)
 ```
 
 **Next steps**, in order of expected impact:
 
-1. **Corpus filtering.** Only 144 of the 400 papers explicitly mention fuel cells / SOFCs; the
-   arXiv keyword search also pulled in batteries, biology ("cell") and other off-topic work.
+1. **Corpus coverage.** Filtering out off-topic papers didn't help (ADR-017); the unanswered
+   questions need papers that actually cover them — a targeted fetch on those topics.
 2. **Cross-encoder re-ranking** of the fused top-20 before generation.
 3. **Larger, harder benchmark** — 7 questions is enough to see big effects, not small ones.
 4. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
@@ -571,10 +574,10 @@ MatSci-RAG/
 │   ├── api/main.py           FastAPI: POST /query, GET /health
 │   └── ui/                   app.py (router) · theme.py · views/{chat, analytics, knowledge_graph}.py
 ├── scripts/                  evaluate_ragas.py · evaluate_rag.py · ingest_full_papers.py
-├── tests/                    50 tests — 41 run everywhere (incl. CI); 9 that need local
+├── tests/                    53 tests — 44 run everywhere (incl. CI); 9 that need local
 │                             data/models skip cleanly on a fresh checkout
 ├── docs/
-│   ├── ADRs/                 16 Architecture Decision Records
+│   ├── ADRs/                 17 Architecture Decision Records
 │   ├── Phases/               step-by-step build guide, Phases 0–8
 │   ├── results/              evaluation CSVs (v2/ = current judge) and logs
 │   ├── MatSci-RAG-Review.md  formal project review
@@ -594,7 +597,7 @@ MatSci-RAG/
 | [RESULTS.md](RESULTS.md) | Every measurement: NER F1, retrieval hit-rate, eval tables, bugs found |
 | [docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md) | Problem statement, literature review, methodology, results |
 | [docs/Project-Explainer.md](docs/Project-Explainer.md) | Glossary of every term, a fully traced example, mentor Q&A |
-| [docs/ADRs/](docs/ADRs/) | 16 decision records — why each technical choice was made |
+| [docs/ADRs/](docs/ADRs/) | 17 decision records — why each technical choice was made |
 | [docs/sample_questions.md](docs/sample_questions.md) | Ready-to-paste demo questions |
 | [docs/archive/](docs/archive/) | Base paper (Maharana et al., 2025) and the Zeroth Review |
 

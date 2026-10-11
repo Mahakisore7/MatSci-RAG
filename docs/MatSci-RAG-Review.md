@@ -420,20 +420,20 @@ Reported honestly rather than inflated:
    dense-only hit-rate only). Worth doing next, especially since dense-only already hits 100% on
    that particular test set — a harder, more ambiguity-prone test set would be needed to show
    hybrid retrieval's benefit quantitatively, not just on the one known failure case.
-3. **Generation is the measured bottleneck.** In Phase 10, full text raised Context Precision
-   from 0.314 to 0.586, yet Answer Relevancy stayed at or near zero in all 8 configurations, and
-   `flan-t5-large` made answers more cautious rather than better (ADR-015). A modern
-   instruction-tuned generator (~7–8B parameters) is now the highest-leverage next step, ahead of
-   NER improvements. A stronger, independent model for self-verification belongs with it: in a
-   live test, the same-model verifier confirmed a wrong answer.
+3. **Generation was the measured bottleneck — now addressed.** With Flan-T5, Answer Relevancy
+   stayed near zero in all 8 configurations, and `flan-t5-large` only made answers more cautious
+   (ADR-015). A Groq-hosted `qwen3.8-27b`, on identical retrieval, raised it to 0.429 (0.714 with
+   expansion), and self-verification now runs on a separate model that quotes its evidence
+   (ADR-016). The trade-off is an API dependency, with automatic fallback to local Flan-T5.
 4. **Retrieval fusion parameters are reasonable defaults, not tuned.** The NER-boost weight and
    candidate pool size were sanity-checked against real data but not formally grid-searched.
 5. **Two pieces of flagged-but-deliberately-untouched cleanup:** a bloated leftover model
    checkpoint directory (~1.3GB, local disk only, not part of the tracked project) and several
    stale, already-merged git branches on the remote — both low-risk, low-priority, and left for an
    explicit decision rather than done silently.
-6. **Corpus filtering.** Only 144 of the 400 papers explicitly mention fuel cells, SOFCs or solid
-   oxide; a relevance filter (or a better arXiv query) would make every downstream number cleaner.
+6. **Corpus coverage, not noise.** Only 145 of 400 papers mention fuel cells. A relevance filter
+   was built and measured (ADR-017) and gave no gain; the unanswered questions need new papers
+   that cover them, not fewer off-topic ones.
 7. **A larger benchmark.** Seven questions detect large effects only; the judge varies by about
    ±0.03 between identical retrievals.
 
