@@ -483,6 +483,21 @@ instruction-tuned model (~7–8B) as the next experiment. Have the live example 
 saying *"Ni coarsening … is considered a major reason for anode degradation"* is retrieved at rank
 2, and the generator still answers from rank 1.
 
+**Q: So did a stronger model fix it?**
+Yes, and it's the cleanest experiment in the project, because only the generator changed. Same
+index, same retrieved passages, same 7 questions, same judge. Swapping Flan-T5 for `qwen3.8-27b`
+(via Groq) took Answer Relevancy from 0.071 to 0.429, and to 0.714 with query expansion. The anode
+question that Flan-T5 got wrong now gets "Ni coarsening", with the mechanism explained and the
+source sentence quoted by the verifier. The three questions still answered "I don't know" are
+ones where the retrieved passages really don't contain the answer, so the next limit is corpus
+coverage, not the model.
+
+**Q: Isn't depending on an external API a weakness?**
+It's a deliberate trade-off (ADR-016). Groq runs a model far larger than a laptop GPU can, for
+free, in about a second. To contain the risk: any API failure falls back to local Flan-T5
+automatically, `GEN_BACKEND=local` makes everything offline, and generator, verifier and judge are
+three different models, so no model grades its own work.
+
 **Q: Why build a REST API, and why no Docker image?**
 The API (ADR-014) lets other programs use the pipeline, with request validation and auto-generated
 docs, and it reuses `answer_query()` so it can't drift from the UI. A CPU-only Docker image was built
@@ -532,12 +547,14 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
    benchmark** — the 20-question evaluation script currently measures dense-only retrieval; a
    harder, more ambiguity-prone test set would be needed to show hybrid retrieval's benefit as a
    number, not just a case study.
-4. **Generation is the bottleneck, and it isn't fixed by a bigger Flan-T5** — measured in Phase 10
-   (ADR-015): Answer Relevancy is at or near zero in all 8 configurations, even when the retrieved
-   passages are rated highly relevant. `flan-t5-large` made it more cautious, not better.
+4. **Generation was the bottleneck — now addressed, with a dependency** — with Flan-T5, Answer
+   Relevancy was near zero in all 8 configurations (ADR-015). A Groq-hosted `qwen3.8-27b` raised it
+   to 0.714 (ADR-016), but the default answer path now depends on an external API. If that fails it
+   falls back to Flan-T5, so the app keeps working with weaker answers.
 5. **Self-verification checks consistency, not correctness** — see Section 1.12's nuance. Phase 10
-   showed it live: the verifier (the same small model) confirmed an answer taken from the wrong
-   passage.
+   showed it live: the Flan-T5 verifier (checking its own output) confirmed an answer taken from the
+   wrong passage. It now runs on a separate model and must quote its evidence, which makes it
+   checkable, though still not a guarantee of correctness.
 6. **Full-paper ingestion and query expansion each help independently, but do not compose** —
    measured, not assumed (`RESULTS.md`'s Phase 9 Follow-up section, and Section 5's Q&A above).
    Combined, Answer Relevancy collapsed to 0.000 despite Context Precision still improving, because
@@ -569,19 +586,20 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | Vector DB | ChromaDB |
 | Keyword retrieval | BM25 (`rank-bm25`) |
 | Fusion method | Reciprocal Rank Fusion + NER entity-overlap boost |
-| Generator | `google/flan-t5-base` (configurable; `flan-t5-large` tested and not adopted, ADR-015) |
+| Generator | `qwen/qwen3.8-27b` via Groq, falling back to local `google/flan-t5-base` (ADR-016) |
+| Verifier / judge | `gpt-oss-20b` / `gpt-oss-120b` — three different models, none grades itself |
 | Reliability layers | Self-verification, ambiguity abstention |
 | Retrieval hit-rate | 100% (20/20 hand-written questions, dense retrieval) |
-| Tests | 46 automated (37 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
+| Tests | 50 automated (41 run everywhere, 9 need local data/models), `ruff` clean, GitHub Actions CI |
 | Base paper | Maharana et al. (2025) — RAG+NER for materials-science literature |
 | Key technique borrowed | ChatExtract (Polak & Morgan) — follow-up verification prompting |
 | NER training data | SOFC-Exp (Brack et al., 2020), 876 labeled sentences |
-| ADRs | 15 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
+| ADRs | 16 (`docs/ADRs/`) — every non-trivial technical decision, including reversed ones |
 | Phase 9 extensions | Multi-turn memory · LLM-judge eval (Groq) · query expansion (Groq) · full-paper ingestion · knowledge graph (pyvis) · analytics dashboard |
 | Phase 10 | Full corpus (399/400 full text) · 8-config re-evaluation · REST API · redesigned UI |
-| End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.071 · Context Precision 0.586 |
+| End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.714 · Context Precision 0.543 (was 0.071 relevancy with Flan-T5) |
 | Judge / expansion models | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` via the Groq API — the one non-local piece; expansion degrades gracefully, evaluation fails loudly |
-| Biggest known limitation | Generation: answers stay weak even when retrieval finds the right passage. NER precision (~9% F1) is second. |
+| Biggest known limitation | Corpus coverage and noise (only 144/400 papers are about fuel cells); NER precision (~9% F1) second |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
 review), [`docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md`](ADRs/ADR-009-ner-aware-retrieval-reranking.md)

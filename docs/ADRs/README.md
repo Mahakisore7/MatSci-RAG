@@ -35,6 +35,7 @@ Each ADR follows this standard structure:
 | [ADR-013](ADR-013-knowledge-graph-visualization.md) | Knowledge Graph Visualization | Accepted |
 | [ADR-014](ADR-014-rest-api.md) | A REST API over the RAG Pipeline (Docker considered and dropped) | Accepted |
 | [ADR-015](ADR-015-generator-size-and-full-corpus-evaluation.md) | Generator Size — flan-t5-large Evaluated and Not Adopted | Accepted |
+| [ADR-016](ADR-016-groq-generator-with-local-fallback.md) | Groq-Hosted Generator with Local Fallback, and a Separate Verifier | Accepted |
 
 ## Naming Convention
 

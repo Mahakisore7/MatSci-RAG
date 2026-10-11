@@ -1,6 +1,6 @@
 # ADR-015: Generator Size — flan-t5-large Evaluated and Not Adopted
 
-**Status:** Accepted
+**Status:** Accepted — generator choice superseded by ADR-016 (measurements still stand)
 **Date:** 2026-10-06
 **Phase:** Phase 10
 

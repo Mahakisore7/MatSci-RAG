@@ -11,8 +11,8 @@ with the passages it came from, a self-verification check, and an explicit <i>"I
 
 <p>
 <a href="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml"><img src="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-<img src="https://img.shields.io/badge/tests-46%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="46 tests">
-<img src="https://img.shields.io/badge/ADRs-15-6366f1?style=flat-square" alt="14 ADRs">
+<img src="https://img.shields.io/badge/tests-50%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="50 tests">
+<img src="https://img.shields.io/badge/ADRs-16-6366f1?style=flat-square" alt="16 ADRs">
 <img src="https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13">
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0"></a>
 </p>
@@ -59,8 +59,8 @@ re-rank results — without ever filtering a paper out.
 |---|---|
 | **Domain NER** | MatSciBERT fine-tuned on SOFC-Exp; beats a BERT-base baseline (F1 0.0915 vs 0.0816) |
 | **Hybrid retrieval** | Dense (BGE-small) + BM25, fused with Reciprocal Rank Fusion, plus an NER-overlap boost |
-| **Grounded generation** | Context-only prompting; refuses off-topic or unsupported questions |
-| **Self-verification** | A second model call checks whether the context actually supports the answer |
+| **Grounded generation** | `qwen3.8-27b` via Groq, with automatic fallback to local Flan-T5; refuses unsupported questions |
+| **Self-verification** | A *different* model (`gpt-oss-20b`) checks the answer against the passages and quotes its evidence |
 | **Ambiguity abstention** | Asks the user to narrow the question when results span too many materials |
 | **Multi-turn memory** | Follow-ups resolve pronouns from the last 3 turns |
 | **Query expansion** | Optional LLM rewrite into a keyword-rich search query (retrieval only) |
@@ -107,7 +107,7 @@ flowchart TB
 
     subgraph ON["ONLINE PIPELINE · every question"]
         direction LR
-        RET["Hybrid retrieval<br/>dense + BM25 + NER boost"] --> GEN["Grounded generation<br/>Flan-T5"] --> VER["Self-verification<br/>+ abstention"]
+        RET["Hybrid retrieval<br/>dense + BM25 + NER boost"] --> GEN["Grounded generation<br/>Qwen3 · Flan-T5 fallback"] --> VER["Self-verification<br/>+ abstention"]
     end
 
     subgraph IF["INTERFACES"]
@@ -186,7 +186,8 @@ sequenceDiagram
     participant R as hybrid_retrieve()
     participant K as ChromaDB + BM25
     participant A as detect_ambiguity()
-    participant G as Generator<br/>(Flan-T5)
+    participant G as Generator<br/>(qwen3.8-27b)
+    participant V as Verifier<br/>(gpt-oss-20b)
 
     U->>I: question (+ last 3 turns)
     opt expansion enabled
@@ -204,8 +205,8 @@ sequenceDiagram
     else normal case
         I->>G: context-only prompt + ORIGINAL question
         G-->>I: answer
-        I->>G: "does the context support this?"
-        G-->>I: verification
+        I->>V: "does the context support this?"
+        V-->>I: yes / no + quoted evidence
         I-->>U: answer · verification badge · cited sources
     end
 ```
@@ -307,12 +308,16 @@ environment variables (or `.env`):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `GEN_MODEL_NAME` | `google/flan-t5-base` | Answer generator (any Hugging Face seq2seq model) |
+| `GEN_BACKEND` | `groq` | `groq` = hosted model with local fallback; `local` = fully offline |
+| `GROQ_GEN_MODEL` | `qwen/qwen3.8-27b` | Answer generator |
+| `GROQ_VERIFY_MODEL` | `openai/gpt-oss-20b` | Self-verification (deliberately a different model) |
+| `GEN_MODEL_NAME` | `google/flan-t5-base` | Local generator, and the fallback when Groq is unavailable |
 | `GROQ_API_KEY` | — | Enables query expansion and evaluation |
 | `GROQ_EXPANSION_MODEL` | `openai/gpt-oss-20b` | Query rewriting (fast; on the live path) |
 | `GROQ_JUDGE_MODEL` | `openai/gpt-oss-120b` | Evaluation judge |
 | `HF_TOKEN` | — | Hugging Face downloads (optional) |
 
+Generator, verifier and judge are three different models, so no model grades its own output.
 Groq has retired several models this project used, so model names are configuration, not code.
 
 ---
@@ -324,29 +329,29 @@ Groq has retired several models this project used, so model names are configurat
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What causes anode degradation in Ni-YSZ SOFCs?", "expand_query": false}'
+  -d '{"question": "What causes anode degradation in Ni-YSZ SOFCs?", "expand_query": true}'
 ```
 
 ```jsonc
 {
-  "answer": "I don't know based on the given context.",
+  "answer": "Based on the provided context, anode degradation in Ni-YSZ SOFCs is primarily caused by **Ni coarsening**. This is a capillarity-driven phenomenon where materials are transported from regions of high curvature to regions of lower curvature (in accordance with the Gibbs-Thomson effect). This process increases the resistance in SOFCs and results in cell degradation. Additionally, high operating temperatures contribute to rapid component degradation.",
   "abstained": false,
-  "verification": "I don't know",
+  "verification": "Yes.  \n“Ni coarsening in the SOFC anode is a capillarity‑driven phenomenon. Regions with high curvatures have higher chemical potentials than those with lower curvatures in accordance with the Gibbs‑Thomson effect. Materials will therefore be transported from higher‑to‑lower‑curvature regions when mobility is sufficiently large for the time scale of interest.” (Context [4])",
   "sources": [
-    // 5 passages; rank 2 shown
+    // 5 passages; the one the verifier cites is shown
     {
-      "rank": 2,
+      "rank": 4,
       "title": "Ni coarsening in the three-phase solid oxide fuel cell anode - a phase-field simulation study",
       "paper_id": "http://arxiv.org/abs/1201.1567v1",
       "section": "introduction",
-      "text": "major mechanisms responsible for microstructural change i n SOFC anodes [10]. Ni\ncoarsening in …"
+      "text": "major mechanisms responsible for microstructural change i n SOFC anodes [10]. …"
     }
   ]
 }
 ```
 
-This is real output, and it illustrates [finding 1](#findings): the Ni-coarsening passage that
-answers the question is retrieved, but the generator still declines to answer.
+This is real output from `qwen3.8-27b`: the answer is grounded in the retrieved passages, and
+the verifier (a different model) quotes the exact supporting sentence.
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
@@ -384,8 +389,9 @@ the comparison between the two models is the point. Details in [RESULTS.md](RESU
 
 ### End-to-end quality (LLM judge, 7 questions)
 
-Eight configurations, the same 7 benchmark questions, judged by `openai/gpt-oss-120b`
-([raw CSVs](docs/results/v2/), analysis in [ADR-015](docs/ADRs/ADR-015-generator-size-and-full-corpus-evaluation.md)):
+Ten configurations, the same 7 benchmark questions, judged by `openai/gpt-oss-120b`
+([raw CSVs](docs/results/v2/); analysis in [ADR-015](docs/ADRs/ADR-015-generator-size-and-full-corpus-evaluation.md)
+and [ADR-016](docs/ADRs/ADR-016-groq-generator-with-local-fallback.md)):
 
 | Index | Generator | Expansion | Faithfulness | Answer Relevancy | Context Precision |
 |---|---|:---:|---:|---:|---:|
@@ -393,10 +399,12 @@ Eight configurations, the same 7 benchmark questions, judged by `openai/gpt-oss-
 | Abstracts | flan-t5-base | on | 0.857 | **0.143** | 0.486 |
 | Abstracts | flan-t5-large | | 0.857 | 0.000 | 0.343 |
 | Abstracts | flan-t5-large | on | 0.857 | 0.071 | 0.457 |
-| **Full text** | **flan-t5-base** | | 0.857 | 0.071 | **0.586** |
+| Full text | flan-t5-base | | 0.857 | 0.071 | **0.586** |
 | Full text | flan-t5-base | on | 0.857 | 0.000 | 0.571 |
 | Full text | flan-t5-large | | 0.714 | 0.000 | **0.586** |
 | Full text | flan-t5-large | on | 0.857 | 0.000 | 0.543 |
+| Full text | qwen3.8-27b | | **1.000** | 0.429 | 0.543 |
+| **Full text** | **qwen3.8-27b** | **on** | 0.857 | **0.714** | 0.543 |
 
 **Bold row = the configuration the app serves by default.** Context Precision depends only on
 retrieval, so the spread between generators on the same index (0.314 vs 0.343) shows the judge's
@@ -414,25 +422,27 @@ noise: about ±0.03.
 
 These are measured, not assumed — each has evidence in [RESULTS.md](RESULTS.md).
 
-**1 · Retrieval works; generation is the bottleneck.** Full-text indexing nearly doubles
-Context Precision (0.314 → 0.586), but Answer Relevancy stays near zero in every configuration.
-A larger Flan-T5 does not help: `flan-t5-large` answers *"I don't know"* to 6 of 7 full-text
-questions, including two where the judge rated the retrieved passages 1.0 and 0.9. The
-example below shows it live — the passage at rank 2 states the answer verbatim
-(*"Ni coarsening … is considered a major reason for anode degradation"*), and the generator
-answers from rank 1 instead.
+**1 · Generation was the bottleneck — and a stronger model fixed it.** Full text nearly doubled
+Context Precision (0.314 → 0.586), yet with Flan-T5 Answer Relevancy stayed near zero in every
+configuration; `flan-t5-large` only became more cautious. Swapping in `qwen3.8-27b` on the same
+retrieval raised Answer Relevancy **0.071 → 0.429**, and to **0.714** with query expansion,
+with Faithfulness unchanged or better. Retrieval had been finding the right passages all along.
 
-<p align="center">
-  <img src="docs/assets/ui-answer.png" alt="Answer with sources: the correct passage is retrieved at rank 2 but the generator answers from rank 1" width="88%">
-</p>
+<table>
+<tr>
+<td width="50%" valign="top"><b>Before</b> — flan-t5-base: the answer is in passage 2, the model answers from passage 1, and the same-model verifier approves it.<br/><br/><img src="docs/assets/ui-answer-flan-t5.png" alt="Flan-T5 answer taken from the wrong passage"></td>
+<td width="50%" valign="top"><b>After</b> — qwen3.8-27b: a correct, grounded answer; a different verifier model quotes the supporting sentence.<br/><br/><img src="docs/assets/ui-answer.png" alt="Qwen answer naming Ni coarsening with quoted evidence"></td>
+</tr>
+</table>
 
-**2 · Self-verification by the same small model is weak.** In that example the verifier
-confirmed the wrong answer. A check is only as strong as the model doing it; a stronger or
-different verifier model is needed for this to be a real safeguard.
+**2 · A verifier is only as good as its model.** With Flan-T5 checking its own output, the
+self-check approved a wrong answer. It now runs on a separate model (`gpt-oss-20b`) and must quote
+its evidence, so a "supported" badge can be checked by a human in seconds.
 
-**3 · Query expansion helps retrieval on abstracts, not on full text.** Context Precision rises
-0.314 → 0.486 on abstracts; on full text the passages are already richer and expansion adds
-nothing (0.586 → 0.571).
+**3 · Query expansion's value depends on the generator.** It raises Context Precision on abstracts
+(0.314 → 0.486) but not on full text. With Qwen it still lifts Answer Relevancy (0.429 → 0.714),
+because the rewritten query pulls in passages a capable model can synthesize — so it is now on by
+default in the app.
 
 **4 · Silent failures were the biggest engineering risk.** Each of these looked healthy from
 the outside: PDF downloads failed for 100% of papers (wrong `arxiv` API); the retired judge
@@ -449,7 +459,11 @@ entity (68% raw, 78% after noise filtering) — which is exactly why entities re
 instead of filtering them (ADR-009).
 
 **7 · The benchmark is small.** Seven questions detect large effects (like finding 1), not
-differences of a few hundredths.
+differences of a few hundredths. Three of the seven still get *"I don't know"*; reading them, the
+retrieved passages genuinely don't answer those questions, which points at corpus coverage.
+
+**8 · The answer path now depends on an API.** If Groq is down or rate-limited, answers fall
+back to local Flan-T5 automatically, so the app keeps working, but with the weaker model.
 
 ---
 
@@ -474,19 +488,19 @@ timeline
                : Full-paper ingestion · knowledge graph
                : LLM-judge evaluation · analytics
     Phase 10   : REST API · redesigned UI · configurable models
-               : 399/400 full papers · 8-config re-evaluation
+               : 399/400 full papers · 10-config re-evaluation
+               : Qwen3 generator · separate verifier
 ```
 
 **Next steps**, in order of expected impact:
 
-1. **Stronger generator.** Retrieval quality is no longer the bottleneck — generation is. A
-   7–8B instruction-tuned model (local or via API) is the single biggest lever.
-2. **Corpus filtering.** Only 144 of the 400 papers explicitly mention fuel cells / SOFCs; the
+1. **Corpus filtering.** Only 144 of the 400 papers explicitly mention fuel cells / SOFCs; the
    arXiv keyword search also pulled in batteries, biology ("cell") and other off-topic work.
-3. **Cross-encoder re-ranking** of the fused top-20 before generation.
-4. **Larger, harder benchmark** — 7 questions is enough to see big effects, not small ones.
-5. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
+2. **Cross-encoder re-ranking** of the fused top-20 before generation.
+3. **Larger, harder benchmark** — 7 questions is enough to see big effects, not small ones.
+4. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and
    equation fragments into full-paper chunks.
+5. **A local strong generator** (e.g. a 7–8B model) as an offline-capable alternative to Groq.
 
 ---
 
@@ -531,7 +545,7 @@ timeline
 | **NER** | <img src="https://img.shields.io/badge/MatSciBERT-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="MatSciBERT"> <img src="https://img.shields.io/badge/Transformers-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="Transformers"> <img src="https://img.shields.io/badge/seqeval-475569?style=flat-square" alt="seqeval"> |
 | **Retrieval** | <img src="https://img.shields.io/badge/BGE--small--en-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="BGE--small--en"> <img src="https://img.shields.io/badge/ChromaDB-FF6446?style=flat-square" alt="ChromaDB"> <img src="https://img.shields.io/badge/BM25-475569?style=flat-square" alt="BM25"> <img src="https://img.shields.io/badge/LangChain-1C3C3C?style=flat-square&logo=langchain&logoColor=white" alt="LangChain"> |
 | **Generation** | <img src="https://img.shields.io/badge/Flan--T5-FFD21E?style=flat-square&logo=huggingface&logoColor=black" alt="Flan--T5"> <img src="https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch"> |
-| **LLM services** | <img src="https://img.shields.io/badge/Groq%20%C2%B7%20gpt--oss--20b-F55036?style=flat-square" alt="Groq%20%C2%B7%20gpt--oss--20b"> <img src="https://img.shields.io/badge/Groq%20%C2%B7%20gpt--oss--120b-F55036?style=flat-square" alt="Groq%20%C2%B7%20gpt--oss--120b"> |
+| **LLM services** | <img src="https://img.shields.io/badge/Groq%20%C2%B7%20gpt--oss--20b-F55036?style=flat-square" alt="Groq%20%C2%B7%20gpt--oss--20b"> <img src="https://img.shields.io/badge/Groq%20%C2%B7%20qwen3.8--27b-F55036?style=flat-square" alt="Groq qwen3.8-27b"> <img src="https://img.shields.io/badge/Groq%20%C2%B7%20gpt--oss--120b-F55036?style=flat-square" alt="Groq%20%C2%B7%20gpt--oss--120b"> |
 | **Ingestion** | <img src="https://img.shields.io/badge/arXiv%20API-B31B1B?style=flat-square&logo=arxiv&logoColor=white" alt="arXiv API"> <img src="https://img.shields.io/badge/pypdf-475569?style=flat-square" alt="pypdf"> <img src="https://img.shields.io/badge/Requests-475569?style=flat-square" alt="Requests"> |
 | **Interfaces** | <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white" alt="Streamlit"> <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"> <img src="https://img.shields.io/badge/Pydantic-E92063?style=flat-square&logo=pydantic&logoColor=white" alt="Pydantic"> <img src="https://img.shields.io/badge/Plotly-3F4F75?style=flat-square&logo=plotly&logoColor=white" alt="Plotly"> <img src="https://img.shields.io/badge/pyvis%20%C2%B7%20networkx-475569?style=flat-square" alt="pyvis%20%C2%B7%20networkx"> |
 | **Engineering** | <img src="https://img.shields.io/badge/uv-DE5FE9?style=flat-square&logo=uv&logoColor=white" alt="uv"> <img src="https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black" alt="Ruff"> <img src="https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white" alt="pytest"> <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions"> <img src="https://img.shields.io/badge/pre--commit-FAB040?style=flat-square" alt="pre--commit"> |
@@ -557,10 +571,10 @@ MatSci-RAG/
 │   ├── api/main.py           FastAPI: POST /query, GET /health
 │   └── ui/                   app.py (router) · theme.py · views/{chat, analytics, knowledge_graph}.py
 ├── scripts/                  evaluate_ragas.py · evaluate_rag.py · ingest_full_papers.py
-├── tests/                    46 tests — 37 run everywhere (incl. CI); 9 that need local
+├── tests/                    50 tests — 41 run everywhere (incl. CI); 9 that need local
 │                             data/models skip cleanly on a fresh checkout
 ├── docs/
-│   ├── ADRs/                 15 Architecture Decision Records
+│   ├── ADRs/                 16 Architecture Decision Records
 │   ├── Phases/               step-by-step build guide, Phases 0–8
 │   ├── results/              evaluation CSVs (v2/ = current judge) and logs
 │   ├── MatSci-RAG-Review.md  formal project review
@@ -580,7 +594,7 @@ MatSci-RAG/
 | [RESULTS.md](RESULTS.md) | Every measurement: NER F1, retrieval hit-rate, eval tables, bugs found |
 | [docs/MatSci-RAG-Review.md](docs/MatSci-RAG-Review.md) | Problem statement, literature review, methodology, results |
 | [docs/Project-Explainer.md](docs/Project-Explainer.md) | Glossary of every term, a fully traced example, mentor Q&A |
-| [docs/ADRs/](docs/ADRs/) | 15 decision records — why each technical choice was made |
+| [docs/ADRs/](docs/ADRs/) | 16 decision records — why each technical choice was made |
 | [docs/sample_questions.md](docs/sample_questions.md) | Ready-to-paste demo questions |
 | [docs/archive/](docs/archive/) | Base paper (Maharana et al., 2025) and the Zeroth Review |
 

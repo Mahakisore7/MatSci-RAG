@@ -14,13 +14,24 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.core.config import GEN_MODEL_NAME, GROQ_EXPANSION_MODEL, GROQ_JUDGE_MODEL
+from src.core.config import (
+    GEN_MODEL_NAME,
+    GROQ_EXPANSION_MODEL,
+    GROQ_JUDGE_MODEL,
+    GROQ_VERIFY_MODEL,
+    active_generator,
+)
 from src.ui.theme import CHART_COLORS, DEVICE, EXPERIMENT, MATERIAL, PAPER, hero, section
 
 CORPUS_PATH = "data/sofc_corpus.jsonl"
 FULL_PAPERS_PATH = "data/full_papers.jsonl"
 FACTS_PATH = "data/structured_facts.jsonl"
 EVAL_GLOB = "docs/results/v2/*.csv"
+GENERATOR_LABELS = {
+    "base": "flan-t5-base",
+    "large": "flan-t5-large",
+    "qwen": "qwen3.8-27b",
+}
 METRICS = ["faithfulness", "answer_relevancy", "context_precision"]
 METRIC_LABELS = {
     "faithfulness": "Faithfulness",
@@ -65,7 +76,8 @@ def load_evaluations() -> dict[str, pd.DataFrame]:
             continue
         corpus_name, gen, exp = m.groups()
         name = (
-            f"{'Full text' if corpus_name == 'fullpaper' else 'Abstracts'} · flan-t5-{gen}"
+            f"{'Full text' if corpus_name == 'fullpaper' else 'Abstracts'} · "
+            f"{GENERATOR_LABELS.get(gen, gen)}"
             f"{' · expansion' if exp == 'on' else ''}"
         )
         runs[name] = pd.read_csv(path)
@@ -370,9 +382,9 @@ with cfg_right:
         f"""
 | Generation | |
 |---|---|
-| Generator | `{GEN_MODEL_NAME}` |
+| Generator | `{active_generator()}` (local fallback `{GEN_MODEL_NAME}`) |
 | NER model | `m3rg-iitd/matscibert` (test F1 0.0915) |
-| Verification | second generator call (self-check) |
+| Verification | `{GROQ_VERIFY_MODEL}` (separate model) |
 | Query expansion | `{GROQ_EXPANSION_MODEL}` |
 | Evaluation judge | `{GROQ_JUDGE_MODEL}` |
 """

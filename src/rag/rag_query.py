@@ -4,18 +4,19 @@ Phase 5: RAG Generation — rag_query.py
 
 The core RAG pipeline: embed a query, retrieve the most relevant passages
 from ChromaDB, build a grounding prompt, and generate an answer from ONLY
-that context using the generator configured in src.core.config.GEN_MODEL_NAME.
+that context. Generation itself lives in src.rag.generation (Groq, local fallback).
 """
 
 # Must import HuggingFaceEmbeddings before torch to avoid Windows DLL crash
 from langchain_huggingface import HuggingFaceEmbeddings  # noqa: I001
-import torch  # noqa: I001
 
 from langchain_chroma import Chroma
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 # pyrefly: ignore [missing-import]
-from src.core.config import GEN_MODEL_NAME
+from src.core.config import GROQ_GEN_MODEL, GROQ_VERIFY_MODEL
+
+# pyrefly: ignore [missing-import]
+from src.rag.generation import generate
 
 # pyrefly: ignore [missing-import]
 from src.core.logging_config import get_logger
@@ -46,26 +47,6 @@ vectorstore = Chroma(
 )
 
 retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-
-# We defer LLM loading to avoid memory issues on import
-_gen_model = None
-_gen_tokenizer = None
-_device = None
-
-
-def get_llm():
-    global _gen_model, _gen_tokenizer, _device
-    if _gen_model is not None:
-        return _gen_model, _gen_tokenizer, _device
-
-    # In Windows, use "cuda" string instead of int for device placement
-    _device = "cuda" if torch.cuda.is_available() else "cpu"
-    log.info(f"Loading generator model '{GEN_MODEL_NAME}' on {_device} ...")
-
-    _gen_tokenizer = AutoTokenizer.from_pretrained(GEN_MODEL_NAME)
-    _gen_model = AutoModelForSeq2SeqLM.from_pretrained(GEN_MODEL_NAME).to(_device)
-
-    return _gen_model, _gen_tokenizer, _device
 
 
 def build_prompt(query: str, retrieved_docs: list, chat_history: list = None) -> str:
@@ -157,16 +138,8 @@ def answer_query(
 
     prompt = build_prompt(query, retrieved_docs, chat_history)
 
-    model, tokenizer, device = get_llm()
-
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024).to(device)
-
-    with torch.no_grad():
-        output_ids = model.generate(**inputs, max_new_tokens=200)
-
-    answer = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
-
-    log.info(f"Generated Answer: {answer[:80]}...")
+    answer, used = generate(prompt, GROQ_GEN_MODEL, max_new_tokens=300)
+    log.info(f"Generated answer ({used}): {answer[:80]}...")
 
     return answer, retrieved_docs
 
@@ -187,15 +160,7 @@ def verify_answer(query: str, answer: str, retrieved_docs: list) -> str:
         "and quote the exact supporting sentence if yes.\nAnswer:"
     )
 
-    model, tokenizer, device = get_llm()
-    inputs = tokenizer(verify_prompt, return_tensors="pt", truncation=True, max_length=1024).to(
-        device
-    )
-
-    with torch.no_grad():
-        output_ids = model.generate(**inputs, max_new_tokens=100)
-
-    verification = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+    verification, _ = generate(verify_prompt, GROQ_VERIFY_MODEL, max_new_tokens=150)
     return verification
 
 

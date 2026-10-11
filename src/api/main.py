@@ -13,7 +13,7 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-from src.core.config import GEN_MODEL_NAME
+from src.core.config import active_generator
 
 ABSTENTION_MARKER = "Multiple candidate materials found"
 
@@ -67,7 +67,7 @@ class QueryResponse(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "generator": GEN_MODEL_NAME}
+    return {"status": "ok", "generator": active_generator()}
 
 
 @app.post("/query", response_model=QueryResponse)

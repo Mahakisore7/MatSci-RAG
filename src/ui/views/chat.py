@@ -5,7 +5,7 @@ import time
 
 import streamlit as st
 
-from src.core.config import GEN_MODEL_NAME
+from src.core.config import GEN_MODEL_NAME, GROQ_VERIFY_MODEL, active_generator
 from src.rag.rag_query import answer_query, verify_answer
 from src.ui.theme import empty_state, hero, source_card
 
@@ -82,7 +82,7 @@ with st.sidebar:
     has_groq = bool(os.environ.get("GROQ_API_KEY"))
     use_expansion = st.toggle(
         "Query expansion",
-        value=False,
+        value=has_groq,
         disabled=not has_groq,
         help="Rewrite the question into a keyword-rich search query with an LLM before "
         "retrieval. The generator still sees your original question."
@@ -105,7 +105,9 @@ with st.sidebar:
             f"""
 | | |
 |---|---|
-| Generator | `{GEN_MODEL_NAME}` |
+| Generator | `{active_generator()}` |
+| Local fallback | `{GEN_MODEL_NAME}` |
+| Verifier | `{GROQ_VERIFY_MODEL}` |
 | Embeddings | `bge-small-en-v1.5` |
 | NER | `matscibert` |
 | Vector store | ChromaDB |
@@ -123,7 +125,7 @@ hero(
         ("papers", str(stats["papers"])),
         ("with full text", str(stats["full_text"])),
         ("retrieval", "Hybrid" if use_hybrid else "Dense"),
-        ("generator", GEN_MODEL_NAME.split("/")[-1]),
+        ("generator", active_generator().split("/")[-1]),
     ],
 )
 

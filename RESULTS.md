@@ -433,3 +433,35 @@ of this benchmark.
 | `streamlit run src/ui/app.py` could not import `src` | The chat UI had not started since the September restructure | Entry point adds the project root to `sys.path` |
 | `st.iframe(..., scrolling=False)` | Knowledge Graph page crashed on Streamlit 1.60 | Removed the unsupported argument |
 | Full-paper index dropped papers without a parsed PDF | Those papers vanished from retrieval | Abstract fallback (`build_full_paper_chunks`) |
+
+---
+
+## Phase 10 (continued): A Stronger Generator via Groq (2026-10-11)
+
+ADR-015 left generation as the bottleneck. This tests the obvious fix: a much stronger generator
+on the same retrieval, with everything else held fixed (same full-text index, same 7 questions,
+same judge).
+
+| Generator | Expansion | Faithfulness | Answer Relevancy | Context Precision |
+|---|:---:|---:|---:|---:|
+| flan-t5-base (before) | | 0.857 | 0.071 | 0.586 |
+| flan-t5-base (before) | on | 0.857 | 0.000 | 0.571 |
+| **qwen3.8-27b** (Groq) | | **1.000** | **0.429** | 0.543 |
+| **qwen3.8-27b** (Groq) | **on** | 0.857 | **0.714** | 0.543 |
+
+Raw data: `docs/results/v2/fullpaper_qwen_exp-{off,on}.csv`. Neither run used the local fallback.
+
+**Findings**
+- **The hypothesis is confirmed.** With identical retrieval, Answer Relevancy rises about 6×, or
+  10× with expansion. Retrieval had been finding the right passages; Flan-T5 couldn't use them.
+- **Query expansion matters again.** With Flan-T5 it added nothing on full text; with Qwen it lifts
+  Answer Relevancy 0.429 → 0.714. It is now on by default in the app.
+- **The verifier now earns its badge.** It runs on a different model (`gpt-oss-20b`) and quotes
+  its evidence. For the anode question it quotes the Gibbs–Thomson sentence from the source.
+- **Remaining gaps are coverage, not generation.** Qwen still answers "I don't know" to three
+  questions (temperature effects, grain size and ceria, GDC interlayers), and the retrieved passages
+  for those don't contain the answer. That points to corpus filtering and retrieval as the next
+  levers.
+
+**Design (ADR-016):** Groq first; automatic fallback to local Flan-T5 on any API failure;
+`GEN_BACKEND=local` for fully offline use. Generator, verifier and judge are three different models.

@@ -1,0 +1,21 @@
+question,answer,faithfulness,answer_relevancy,context_precision
+What materials are used as electrolytes in solid oxide fuel cells?,"Based on the provided context, the materials used as electrolytes in solid oxide fuel cells include:
+
+*   **Yttria-stabilized zirconia (YSZ)**: Described as a traditional oxygen-ion conductor that operates optimally at temperatures above 800°C [2, 4, 5].
+*   **Gadolinium-doped ceria (GDC)**: Listed as a commonly used solid oxide electrolyte [5].
+*   **Bi2O3**: Listed as a commonly used solid oxide electrolyte [5].
+*   **BaHfO3**: Identified as a defect-induced proton-conducting electrolyte [2, 3].",0.0,1.0,0.8
+What is the effect of temperature on SOFC performance?,"Based on the provided context, high operating temperatures (typically between 500 and 1000°C) enhance reaction kinetics and system efficiency, which eliminates the need for precious-metal catalysts. However, these high temperatures also lead to disadvantages such as slow startup, high fabrication costs, and rapid component degradation. Additionally, high operating temperatures impose strict requirements on materials compatibility, interfacial stability, and thermomechanical durability. To mitigate these issues, efforts have been made to develop intermediate temperature SOFCs (600-800°C) to allow for applications in transportation and other areas.",1.0,1.0,0.4
+Which cathode materials show high oxygen reduction activity in SOFCs?,"Based on the provided context, the cathode materials that show high oxygen reduction reaction (ORR) activity include:
+
+*   **La1-xSrxMnO3 (LSM)**
+*   **La1-xSrxCo1-yFeyO3 (LSCF)**
+*   **Ba1-xSrxCo1-yFeyO3 (BSCF)** (noted for displaying record high ORR activity, though it suffers from stability problems)
+*   **Pr1-xBaxCoO3 (PBCO)** (noted for displaying record high oxygen evolution reaction activity, but mentioned in the context of promising perovskites for electrocatalysis)
+
+Additionally, the study identified **52 potential cathode materials** with predicted surface exchange coefficients ($k^*$) on par with leading ORR perovskite catalysts.",1.0,1.0,1.0
+What causes anode degradation in Ni-YSZ SOFCs?,"Based on the provided context, anode degradation in Ni-YSZ SOFCs is primarily caused by **Ni coarsening**. This is a capillarity-driven phenomenon where materials are transported from regions of high curvature to regions of lower curvature (in accordance with the Gibbs-Thomson effect). This process increases the resistance in SOFCs and results in cell degradation. Additionally, high operating temperatures contribute to rapid component degradation.",1.0,1.0,0.6
+How does grain size affect the ionic conductivity of ceria?,I don't know based on the provided context.,1.0,0.0,0.0
+What is the role of GDC as an interlayer in SOFC cathodes?,"Based on the provided context, GDC (Gadolinium Doped Ceria) serves as a component in interlayers and composite structures to enhance SOFC performance. Specifically, context [4] notes that nanocomposite structures of LSCO/GDC have been grown to improve electrochemical properties, and a dense multilayer heteroepitaxial cathode of LSC and GDC was proposed to result in interface-induced enhancement of oxygen surface exchange and oxygen ion diffusivity, leading to superior fuel cell performance. Additionally, context [3] highlights that GDC offers advantages for SOFC applications, including relatively low sintering temperatures, chemical compatibility with a variety of electrode materials, and tolerance to redox cycling, which has motivated research into GDC-based interlayers.",1.0,1.0,0.2
+What sintering temperatures are typically used for LSCF cathodes?,I don't know based on the provided context.,1.0,0.0,0.8
+AVERAGE,,0.857,0.714,0.543

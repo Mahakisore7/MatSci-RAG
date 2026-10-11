@@ -1,0 +1,18 @@
+question,answer,faithfulness,answer_relevancy,context_precision
+What materials are used as electrolytes in solid oxide fuel cells?,"Based on the provided context, the materials used as electrolytes in solid oxide fuel cells include **gadolinium doped ceria** (Ce1−xGdxO2−δ, GDC), **yttria-stabilized zirconia** (YSZ), and **Bi2O3**.",1.0,1.0,0.4
+What is the effect of temperature on SOFC performance?,I don't know based on the provided context.,1.0,0.0,0.6
+Which cathode materials show high oxygen reduction activity in SOFCs?,"Based on the provided context, the following cathode materials show high oxygen reduction reaction (ORR) activity:
+
+*   **Well-studied commercial materials:** La1-xSrxMnO3 (LSM) and La1-xSrxCo1-yFeyO3 (LSCF).
+*   **High-activity perovskites (some with stability issues):** Ba1-xSrxCo1-yFeyO3 (BSCF) and Pr1-xBaxCoO3 (PBCO).
+*   **Promising new materials identified in the study:** Ba0.75Sr0.25Fe0.875Ga0.125O3, SrCo0.5Sc0.5O3, BaFe0.75Ta0.25O3, BaFe0.125Co0.125Zr0.75O3, BaFe0.875Re0.125O3, and Ba0.5La0.125Zn0.375NiO3.",1.0,1.0,1.0
+What causes anode degradation in Ni-YSZ SOFCs?,"Based on the provided context, anode degradation in Ni-YSZ SOFCs is caused by:
+
+*   **Ni coarsening:** This is a capillarity-driven phenomenon where materials are transported from high-curvature to low-curvature regions (Gibbs-Thomson effect), increasing resistance and resulting in cell degradation.
+*   **Reduction of nickel oxide to nickel:** In metal-supported SOFCs, this reduction process can contribute to cell performance degradation.
+*   **Deactivation of triple-phase boundaries (TPBs):** TPBs may deactivate due to various poisoning mechanisms or microstructural alterations.
+*   **Contaminants:** The presence of heavy tars such as toluene and naphthalene in the fuel (e.g., bio-syngas) can inhibit fuel conversion and mark degradation.",1.0,1.0,0.8
+How does grain size affect the ionic conductivity of ceria?,I don't know based on the provided context.,1.0,0.0,0.2
+What is the role of GDC as an interlayer in SOFC cathodes?,I don't know based on the provided context.,1.0,0.0,0.0
+What sintering temperatures are typically used for LSCF cathodes?,I don't know based on the provided context.,1.0,0.0,0.8
+AVERAGE,,1.0,0.429,0.543

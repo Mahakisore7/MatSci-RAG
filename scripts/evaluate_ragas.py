@@ -37,7 +37,7 @@ from groq import (  # noqa: E402
     RateLimitError,
 )
 
-from src.core.config import GEN_MODEL_NAME, GROQ_JUDGE_MODEL  # noqa: E402
+from src.core.config import GROQ_JUDGE_MODEL, active_generator  # noqa: E402
 from src.rag.rag_query import answer_query  # noqa: E402
 
 # Transient infrastructure failures worth retrying (429, 5xx "over capacity",
@@ -99,7 +99,7 @@ def groq_score(prompt: str, retries: int = 5) -> float:
 
 
 def score_faithfulness(question: str, answer: str, contexts: list[str]) -> float:
-    ctx = "\n\n".join(f"[{i+1}] {c}" for i, c in enumerate(contexts))
+    ctx = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts))
     prompt = (
         "You are a strict faithfulness evaluator.\n"
         f"CONTEXT:\n{ctx}\n\n"
@@ -125,7 +125,7 @@ def score_answer_relevancy(question: str, answer: str) -> float:
 
 
 def score_context_precision(question: str, contexts: list[str]) -> float:
-    ctx = "\n\n".join(f"[{i+1}] {c[:300]}..." for i, c in enumerate(contexts))
+    ctx = "\n\n".join(f"[{i + 1}] {c[:300]}..." for i, c in enumerate(contexts))
     prompt = (
         "You are a retrieval precision evaluator.\n"
         f"QUESTION: {question}\n"
@@ -154,12 +154,12 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
             raise SystemExit("--expand needs GROQ_API_KEY set.")
         llm.invoke("Reply with OK.")
 
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(
-        f"  MatSci-RAG Evaluation  |  Generator: {GEN_MODEL_NAME}  |  "
+        f"  MatSci-RAG Evaluation  |  Generator: {active_generator()}  |  "
         f"Judge: {GROQ_JUDGE_MODEL}  |  expand_q={expand_q}"
     )
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     for i, question in enumerate(BENCHMARK_QUESTIONS, 1):
         print(f"[{i}/{len(BENCHMARK_QUESTIONS)}] {question}")
@@ -201,14 +201,14 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
         avg_rel = sum(r["answer_relevancy"] for r in results) / len(results)
         avg_prec = sum(r["context_precision"] for r in results) / len(results)
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("  AGGREGATE SCORES")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"  Faithfulness:       {avg_faith:.3f}")
         print(f"  Answer Relevancy:   {avg_rel:.3f}")
         print(f"  Context Precision:  {avg_prec:.3f}")
         print(f"  Questions scored:   {len(results)}/{len(BENCHMARK_QUESTIONS)}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         csv_path = output_path
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -242,8 +242,7 @@ def main(expand_q: bool = False, output_path: str = "docs/results/ragas_evaluati
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Groq LLM-judge RAG evaluation "
-            "(Faithfulness / Answer Relevancy / Context Precision)."
+            "Groq LLM-judge RAG evaluation (Faithfulness / Answer Relevancy / Context Precision)."
         )
     )
     parser.add_argument(
