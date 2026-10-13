@@ -548,9 +548,29 @@ Raw data: `docs/results/bench28/retrieval_gold.json`. Cost: about +100 ms per qu
 - The one remaining miss (gas-diffusion-layer thickness) has its target paper outside the
   20-candidate pool, so a larger pool is the next thing to try.
 
-**Not yet measured:** the judged end-to-end effect (Answer Relevancy, abstention count) of
-re-ranking. A 28-question run uses about 190,000 of Groq's 200,000 daily judge tokens, so it needs a
-day when the cap has reset; the evaluator now supports `--resume`. No end-to-end figure is claimed
-for re-ranking until then.
-
 **Decision (ADR-019):** re-ranking is on by default (`USE_RERANK=0` disables it).
+
+### Judged end-to-end result (2026-10-13)
+
+The judged 28-question run, re-ranking off vs on (expansion off, `qwen3.8-27b`, same judge).
+Raw data: `docs/results/bench28/fullpaper_qwen_{,rerank_}exp-off.csv`.
+
+| | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+|---|---:|---:|---:|---:|
+| Before (no re-ranking) | 0.982 | 0.607 | 0.582 | 11 / 28 |
+| **With re-ranking** | 0.964 | **0.821** | **0.689** | **5 / 28** |
+| Original 7: Answer Relevancy | | 0.429 → **0.714** | | 3 → 0 abstentions |
+| New 21: Answer Relevancy | | 0.667 → **0.857** | | 8 → 5 abstentions |
+
+**Findings**
+- Abstentions fell from 11 to 5. Answer Relevancy improved on 7 questions, worsened on 1, and was
+  unchanged on 20. The two original questions that had abstained since ADR-016 (temperature effects,
+  LSCF sintering) are now answered, which further confirms that the old "coverage" explanation was wrong.
+- Context Precision rose 0.582 → 0.689.
+- **Faithfulness dipped 0.982 → 0.964.** The grain-boundary answer went 1.0 → 0.0: it states
+  "1.35 eV", which is not in the retrieved text verbatim (three other quoted figures are). A real
+  unsupported detail is the likeliest explanation, though formatting differences could contribute.
+- Single run per configuration; one question moves Answer Relevancy by 0.036.
+
+**Still pending:** the same run with query expansion on top of re-ranking. A judged run uses about
+190,000 of Groq's 200,000 daily judge tokens, so it needs its own day.

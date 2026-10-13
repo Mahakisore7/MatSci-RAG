@@ -323,7 +323,9 @@ corrected the records rather than leaving them. Five cases is evidence, not proo
 - Answering paper in top 5: **15 → 20 of 21** questions
 - hit@5 **0.714 → 0.952** · MRR **0.448 → 0.849**
 - Cost: about **+100 ms** per query
-- Caveat: gold papers chosen by me; judged answer quality **not yet measured**
+- **Judged on 28 questions:** "I don't know" **11 → 5** · Answer Relevancy **0.607 → 0.821**
+- Cost: faithfulness dipped **0.982 → 0.964** (one answer added a number not in the sources)
+- Caveat: gold papers chosen by me; single run per configuration
 
 **Visual:** grouped bar chart:
 
@@ -332,10 +334,15 @@ corrected the records rather than leaving them. Five cases is evidence, not proo
 | Baseline | 0.714 | 0.448 |
 | Cross-encoder | 0.952 | 0.849 |
 
+Second chart (judged, 28 questions): Answer Relevancy 0.607 → 0.821; Context Precision 0.582 → 0.689;
+abstentions 11 → 5.
+
 **Speaker notes:** "Measured without any LLM judge, so it costs no API budget and can be re-run any
 time. One miss remains: its target paper isn't even in the 20 candidates, so the next try is a larger
-candidate pool. And I want to be clear what I have not done: I haven't yet run the judged end-to-end
-evaluation with the re-ranker, because the free API's daily token cap is used up."
+candidate pool. I then confirmed it with the judge on all 28 questions: 'I don't know' answers fell
+from 11 to 5 and relevancy rose from 0.607 to 0.821. It isn't free: faithfulness dipped slightly, to 0.964,
+because one answer quoted a figure that isn't in the retrieved text. I haven't yet judged re-ranking
+combined with query expansion."
 
 ---
 
@@ -374,15 +381,16 @@ they bound them: the effects I report are large ones, in one domain."
 ## Slide 21 — What is pending
 
 **On slide**
-- **Judged** 28-question runs with re-ranking and with expansion — blocked only by Groq's daily token cap
+- Judged run with query expansion **on top of** re-ranking — needs its own day of Groq's daily token budget
+- Look into the one faithfulness regression (grain-boundary answer)
 - Larger candidate pool; larger cross-encoder
 - Held-out benchmark written by someone else
 - Better PDF extraction; local 7–8B generator for offline use
 
 **Visual:** roadmap list with "blocked by quota" tag on the first item.
 
-**Speaker notes:** "The next concrete action is one command on a day the quota resets. Everything
-else is incremental."
+**Speaker notes:** "The judged re-ranking run is done. The next concrete action is one command on a
+day the quota resets. Everything else is incremental."
 
 ---
 
@@ -395,7 +403,7 @@ else is incremental."
 4. Reliability = separate checker + abstention + loud failures
 5. Everything reproducible: scripts, 19 ADRs, 60 tests
 
-**Visual:** big numbers strip: **0.071 → 0.714** · **0.714 → 0.952** · **19 ADRs** · **60 tests**.
+**Visual:** big numbers strip: **0.071 → 0.714** (generator) · **0.714 → 0.952** (retrieval hit@5) · **11 → 5** abstentions · **19 ADRs** · **60 tests**.
 
 **Speaker notes:** "If you remember one thing: the system improved because each change was tested
 against a number, and when a number contradicted me I changed my mind in writing."
@@ -436,5 +444,5 @@ Use Guide §15.
 | NER F1 is only 9% — failure? | Slide 8 · Guide §14 |
 | 100% hit-rate suspicious? | Guide §7.2, §14 |
 | Isn't depending on Groq a weakness? | Slide 12 · Guide §14 |
-| Has the re-ranker been proven end to end? | Slide 18 — retrieval yes; judged quality pending |
+| Has the re-ranker been proven end to end? | Slide 18 — yes, judged on 28 questions (11 → 5 abstentions); with expansion, pending |
 | What did you get wrong? | Slide 17 |

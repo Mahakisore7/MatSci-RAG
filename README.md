@@ -244,7 +244,8 @@ relevant papers, never remove one. Derivation in [ADR-009](docs/ADRs/ADR-009-ner
 A cross-encoder then re-scores the fused top 20 by reading each query–passage pair together, which
 the first stage cannot do ([ADR-019](docs/ADRs/ADR-019-cross-encoder-reranking.md)). On 21 questions
 with known answering papers it raised hit@5 from 0.714 to 0.952 and MRR from 0.448 to 0.849, for
-about +100 ms per query.
+about +100 ms per query. Judged end to end on 28 questions: Answer Relevancy 0.607 → 0.821,
+Context Precision 0.582 → 0.689, "I don't know" answers 11 → 5.
 
 ### Evaluation harness
 
@@ -421,6 +422,21 @@ and [ADR-016](docs/ADRs/ADR-016-groq-generator-with-local-fallback.md)):
 retrieval, so the spread between generators on the same index (0.314 vs 0.343) shows the judge's
 noise: about ±0.03.
 
+### 28-question benchmark: effect of re-ranking
+
+Full-text index, `qwen3.8-27b`, no query expansion, same judge ([ADR-018](docs/ADRs/ADR-018-larger-benchmark-and-retrieval-diagnosis.md),
+[ADR-019](docs/ADRs/ADR-019-cross-encoder-reranking.md); raw data in [`docs/results/bench28/`](docs/results/bench28/)):
+
+| | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+|---|---:|---:|---:|---:|
+| Before re-ranking | 0.982 | 0.607 | 0.582 | 11 / 28 |
+| **With cross-encoder re-ranking (default)** | 0.964 | **0.821** | **0.689** | **5 / 28** |
+
+Answer Relevancy improved on 7 questions, worsened on 1 and was unchanged on 20. The small
+faithfulness dip comes from one answer that quoted a figure not found in the retrieved text. These
+28-question numbers are not comparable with the 7-question table above. Re-ranking combined with
+query expansion has not been judged yet.
+
 <p align="center">
   <img src="docs/assets/ui-analytics-eval.png" alt="Evaluation results in the Analytics page" width="88%">
 </p>
@@ -476,7 +492,9 @@ differences of a few hundredths. Three of the seven still get *"I don't know"*. 
 ([ADR-018](docs/ADRs/ADR-018-larger-benchmark-and-retrieval-diagnosis.md)) found 11 abstentions
 and, in 4 of 5 cases checked, an on-topic paper already in the corpus that retrieval ranked
 outside the top 5. The limit is ranking, not coverage, and cross-encoder
-re-ranking ([ADR-019](docs/ADRs/ADR-019-cross-encoder-reranking.md)) now closes most of that gap.
+re-ranking ([ADR-019](docs/ADRs/ADR-019-cross-encoder-reranking.md)) closes most of that gap: on the
+same 28 questions abstentions fell from 11 to 5 and Answer Relevancy rose from 0.607 to 0.821, at the
+cost of a small faithfulness dip (0.982 → 0.964).
 
 **8 · The answer path now depends on an API.** If Groq is down or rate-limited, answers fall
 back to local Flan-T5 automatically, so the app keeps working, but with the weaker model.
@@ -513,10 +531,11 @@ timeline
 
 **Next steps**, in order of expected impact:
 
-1. **Judged end-to-end run with re-ranking.** Re-ranking is built and lifts retrieval hit@5 from
-   0.714 to 0.952 (ADR-019), but its effect on Answer Relevancy has not been judged yet: a
-   28-question run needs most of Groq's 200,000-token daily judge budget. Run it with `--resume`.
-   Also try a larger candidate pool and a larger cross-encoder.
+1. **Judged run with query expansion on top of re-ranking.** Re-ranking is confirmed end to end
+   (ADR-019: abstentions 11 → 5, Answer Relevancy 0.607 → 0.821 on 28 questions); the combination
+   with expansion is not yet measured. A judged run uses most of Groq's 200,000-token daily judge
+   budget, so it needs its own day (`--resume` is supported). Also try a larger candidate pool and a
+   larger cross-encoder, and check the one new unsupported detail in the grain-boundary answer.
 2. **Held-out benchmark** — the 28-question set (`--benchmark v2`) was written by the system's
    author; questions from someone else would be a stronger test.
 3. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and

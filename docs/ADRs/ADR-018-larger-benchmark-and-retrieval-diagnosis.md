@@ -69,6 +69,8 @@ either way.
   ahead of any corpus fetch.
 - ADR-016 and ADR-017 carry correction notes. Their measurements stand; only the explanation of
   the remaining abstentions changed.
+- **Update:** the retrieval-ranking explanation was confirmed by ADR-019, whose re-ranker cut
+  abstentions from 11 to 5 on this benchmark.
 - **Pending:** the expansion-on v2 run reached question 19 of 28 before the daily judge cap
   stopped it, and its partial results were lost (the resume feature did not exist yet). Rerun it
   with `--resume` once the cap allows. Until then no v2 figure is claimed for expansion.

@@ -1,6 +1,6 @@
 # ADR-019: Cross-Encoder Re-Ranking After Hybrid Retrieval
 
-**Status:** Accepted (end-to-end judge evaluation pending, see Consequences)
+**Status:** Accepted (judged run with expansion still pending, see Consequences)
 **Date:** 2026-10-11
 **Phase:** Phase 10
 
@@ -45,6 +45,31 @@ the question", so Li-ion battery ML papers outranked the SOFC one for an SOFC ma
   is now answered from the right paper. The SOFC machine-learning question now retrieves the right
   paper but the generator still says "I don't know", so retrieval was necessary but not sufficient.
 
+## Judged end-to-end result
+
+Full-text index, `qwen3.8-27b`, expansion off, same 28 questions and same judge, with re-ranking
+off vs on (`docs/results/bench28/fullpaper_qwen_{,rerank_}exp-off.csv`):
+
+| | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+|---|---:|---:|---:|---:|
+| Before (no re-ranking) | 0.982 | 0.607 | 0.582 | 11 / 28 |
+| **With re-ranking** | 0.964 | **0.821** | **0.689** | **5 / 28** |
+| Original 7 within it: Answer Relevancy | | 0.429 → **0.714** | | 3 → 0 abstentions |
+| New 21 within it: Answer Relevancy | | 0.667 → **0.857** | | 8 → 5 abstentions |
+
+- Answer Relevancy improved on 7 questions and worsened on 1 (anode microstructure over time,
+  1 → 0); 20 were unchanged. The two original questions that had been abstaining since ADR-016
+  (temperature effects, LSCF sintering temperatures) are now answered, which is further evidence
+  that the earlier "coverage" explanation was wrong.
+- Context Precision rose 0.582 → 0.689, as expected from better ranking.
+- **Faithfulness fell slightly (0.982 → 0.964).** One answer (grain boundaries) dropped from 1.0 to
+  0.0: it states "1.35 eV", which does not appear verbatim in the retrieved passages (three other
+  figures it quotes do), so this looks like a genuinely unsupported detail rather than judge noise,
+  although text-formatting differences could explain part of it. One other answer rose 0.5 → 1.0.
+  Answering more questions means more chances to add an unsupported detail.
+- Single run per configuration; the judge varies by about ±0.03 on Context Precision, and Answer
+  Relevancy is nearly binary per question, so one question moves it by 0.036.
+
 ## Limits of this evidence
 
 - The gold targets were written by the system's author from corpus titles (see the file's
@@ -53,7 +78,7 @@ the question", so Li-ion battery ML papers outranked the SOFC one for an SOFC ma
 - 21 questions; one miss changes hit@5 by about 5 points.
 - Gold targets exist only for the 21 new questions; the original 7 are not covered.
 - Only one cross-encoder was tried. A larger one (for example `bge-reranker-base`) may do better.
-- hit@5 measures retrieval, not answer quality. The judged end-to-end effect has not been measured.
+- hit@5 measures retrieval, not answer quality; the judged effect is measured separately below.
 
 ## Consequences
 
@@ -61,7 +86,8 @@ the question", so Li-ion battery ML papers outranked the SOFC one for an SOFC ma
   cases like the GDL-thickness question, whose target paper is not in the 20-candidate pool at all
   (the fix there is a larger pool), and cases where the right paper is retrieved but the answer is
   not stated in the retrieved chunks.
-- **Pending:** a judged 28-question run with re-ranking, to measure the effect on Answer Relevancy
-  and the abstention count (11/28 before). It needs about 190,000 judge tokens and Groq's daily cap
-  is 200,000, so it must run on a day when the cap has reset (`--resume` is available).
+- Re-ranking is therefore confirmed end to end on this benchmark: abstentions fell from 11 to 5
+  and Answer Relevancy rose from 0.607 to 0.821.
+- **Pending:** the same judged run *with query expansion* on top of re-ranking. A judged run uses
+  about 190,000 of Groq's 200,000 daily judge tokens, so it needs its own day (`--resume` is available).
 - The first query after start-up loads the cross-encoder (a few seconds, one-time).

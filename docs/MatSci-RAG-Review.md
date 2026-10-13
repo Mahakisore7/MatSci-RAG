@@ -436,8 +436,9 @@ Reported honestly rather than inflated:
    but a relevance filter gave no gain (ADR-017). A 28-question benchmark (ADR-018) showed 11
    abstentions, and in 4 of 5 checked the answering paper is in the corpus but ranked outside the
    top 5. A cross-encoder re-ranker (ADR-019) lifted hit@5 from 0.714 to 0.952 on 21 gold-labelled
-   questions; its judged end-to-end effect is still unmeasured, and the gold labels were written by
-   the system's author.
+   questions, and judged end to end on 28 questions it cut abstentions from 11 to 5 and raised
+   Answer Relevancy from 0.607 to 0.821 (faithfulness dipped 0.982 → 0.964). The gold labels were
+   written by the system's author, and the combination with query expansion is not yet measured.
 7. **A larger benchmark.** Seven questions detect large effects only; the judge varies by about
    ±0.03 between identical retrievals.
 

@@ -558,7 +558,21 @@ written from corpus topics).
 Cost about +100 ms per query (218 → 317 ms). The gold target papers were chosen by the system's
 author from corpus titles, so this is a judgement, not ground truth.
 
-### 7.7 Engineering quality
+### 7.7 Re-ranking, judged end to end — 28 questions, full text, qwen3.8-27b, no expansion
+
+| | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+|---|---:|---:|---:|---:|
+| Before (no re-ranking) | 0.982 | 0.607 | 0.582 | 11 / 28 |
+| **With re-ranking (default)** | 0.964 | **0.821** | **0.689** | **5 / 28** |
+| Original 7 within it: Answer Relevancy | | 0.429 → **0.714** | | 3 → 0 abstentions |
+| New 21 within it: Answer Relevancy | | 0.667 → **0.857** | | 8 → 5 abstentions |
+
+Answer Relevancy improved on 7 questions, worsened on 1, unchanged on 20. Two original questions
+that had abstained since ADR-016 are now answered. **Cost:** faithfulness dipped (0.982 → 0.964); the
+grain-boundary answer scored 0.0 because it states "1.35 eV", which is not in the retrieved text
+verbatim. Single run per configuration; one question moves Answer Relevancy by 0.036.
+
+### 7.8 Engineering quality
 
 60 automated tests (51 run on any machine including CI, 9 need local data and skip cleanly), `ruff`
 lint and format clean, GitHub Actions CI on every push, pre-commit hooks.
@@ -580,7 +594,7 @@ This is the heart of the project. Each row is a belief that was tested; several 
 | 7 | Same-model self-check is a safeguard | Live test | The Flan-T5 verifier approved an answer taken from the wrong passage | Use a separate verifier that quotes evidence (ADR-016) |
 | 8 | Off-topic papers are hurting retrieval | Index only the 145 fuel-cell papers | No measurable gain | Keep as option (ADR-017) |
 | 9 | Remaining "I don't know"s mean the corpus lacks the papers | Larger benchmark; check whether the answering paper exists | **Wrong.** In 4 of 5 checked cases the paper exists but ranks outside the top 5 | Correct ADR-016/017; fix ranking (ADR-018) |
-| 10 | A cross-encoder will fix ranking | Judge-free retrieval check, 21 questions | hit@5 0.714 → 0.952, MRR 0.448 → 0.849 | Adopt, on by default (ADR-019) |
+| 10 | A cross-encoder will fix ranking | Judge-free retrieval check (21 questions), then judged run (28) | hit@5 0.714 → 0.952; abstentions 11 → 5; Answer Relevancy 0.607 → 0.821; faithfulness 0.982 → 0.964 | Adopt, on by default (ADR-019) |
 
 **The pattern.** Fix what the numbers show, not what feels likely. Belief 9 is the clearest
 example: an explanation inferred without checking was wrong, and the docs were corrected rather than
@@ -610,7 +624,7 @@ left to stand.
 | 016 | Groq generator with local fallback; separate verifier | Accepted |
 | 017 | Fuel-cell corpus filter: built, measured, not the default | Accepted (optional) |
 | 018 | 28-question benchmark; corrects the "coverage" explanation | Accepted |
-| 019 | Cross-encoder re-ranking after hybrid retrieval | Accepted (judged end-to-end run pending) |
+| 019 | Cross-encoder re-ranking after hybrid retrieval | Accepted (judged run with expansion pending) |
 
 Files: `docs/ADRs/ADR-0NN-*.md`. Each states Context, Decision, Reasoning/Measurement and Consequences.
 When a decision is reversed the old ADR is marked superseded and keeps its measurements; nothing is deleted.
@@ -648,7 +662,9 @@ The recurring theme is **silent failure**: things that looked healthy from outsi
    still passes.
 5. **The benchmarks are small and author-written.** 7 and 28 questions, judge noise ≈ ±0.03; the 21
    gold-labelled retrieval targets were chosen by the system's author.
-6. **The re-ranker's effect on judged answer quality is not yet measured** (see Section 12).
+6. **Re-ranking trades a little faithfulness for coverage.** It answers more questions (5 of 28
+   abstain, was 11) but one answer added an unsupported number (faithfulness 0.982 → 0.964).
+   Re-ranking combined with query expansion is not yet measured (see Section 12).
 7. **PDF text quality.** `pypdf` carries broken words and equation fragments into chunks.
 8. **Retrieved ≠ answered.** Even with the right paper retrieved, the generator may still decline
    (e.g. the SOFC machine-learning question) because the specific answer isn't in the retrieved chunks.
@@ -658,15 +674,18 @@ The recurring theme is **silent failure**: things that looked healthy from outsi
 
 ## 12. What is pending
 
+**Done since the last revision of this guide:** the judged 28-question run with re-ranking
+(Section 7.7): abstentions 11 → 5, Answer Relevancy 0.607 → 0.821, faithfulness 0.982 → 0.964.
+
 **Blocked only on Groq's daily judge-token budget (200,000/day; a 28-question run uses ~190,000):**
 
-- Judged 28-question run **with re-ranking** (Answer Relevancy and abstention count; baseline is 11/28).
-- Judged 28-question run **with query expansion** (an attempt reached 19/28 and was lost to the cap
-  before resume support existed).
-  Run on a day the budget has reset: `uv run python scripts/evaluate_ragas.py --benchmark v2 [--expand] --output <csv> --resume`.
+- Judged 28-question run **with query expansion on top of re-ranking** (an earlier attempt without
+  re-ranking reached 19/28 and was lost to the cap before resume support existed). Needs its own day:
+  `uv run python scripts/evaluate_ragas.py --benchmark v2 --expand --output docs/results/bench28/fullpaper_qwen_rerank_exp-on.csv --resume`.
 
 **Engineering follow-ups (not started):**
 
+- Investigate the one faithfulness regression (the grain-boundary answer quoting a figure not in the retrieved text).
 - Larger candidate pool before re-ranking (one gold question's paper is outside the top 20 entirely).
 - Try a larger cross-encoder (e.g. `bge-reranker-base`).
 - Held-out benchmark written by someone other than the author.
@@ -675,7 +694,7 @@ The recurring theme is **silent failure**: things that looked healthy from outsi
 
 **Housekeeping:**
 
-- Two local commits are not pushed to GitHub.
+- The judged re-ranking results and the doc updates describing them are committed locally; push when ready.
 - A ~1.3 GB leftover model-checkpoint directory (local disk only, untracked) and several stale,
   already-merged remote branches were flagged earlier and deliberately left for an explicit decision.
 
@@ -764,8 +783,10 @@ without expansion. Off-topic papers weren't what was hurting.
 the papers. Checking (ADR-018) showed the paper existed but ranked too low; I corrected the ADRs and
 fixed ranking with a cross-encoder.
 
-**Has the re-ranker been proven end to end?** Retrieval: yes (hit@5 0.714 → 0.952, judge-free).
-Judged answer quality: not yet; it needs a fresh Groq judge budget.
+**Has the re-ranker been proven end to end?** Yes, on this benchmark. Retrieval hit@5 0.714 →
+0.952 (judge-free); judged on 28 questions, abstentions fell 11 → 5 and Answer Relevancy rose 0.607 →
+0.821. The cost was a small faithfulness dip (0.982 → 0.964). It has not been judged together with
+query expansion yet.
 
 **Why no Docker?** It was built, then dropped because the image was too large for the machine; the
 decision and reason are in ADR-014.
@@ -788,7 +809,7 @@ decision and reason are in ADR-014.
 | Verifier / judge | gpt-oss-20b / gpt-oss-120b |
 | Default quality (7 Q) | Faithfulness 0.857 · Answer Relevancy 0.714 · Context Precision 0.543 |
 | Flan-T5 → Qwen | Answer Relevancy 0.071 → 0.429 (0.714 with expansion) |
-| 28-Q benchmark (no expansion, before re-rank) | F 0.982 · AR 0.607 · CP 0.582 · 11/28 abstain |
+| 28-Q benchmark, no expansion: before → with re-rank | F 0.982 → 0.964 · AR 0.607 → 0.821 · CP 0.582 → 0.689 · abstain 11 → 5 of 28 |
 | Judge noise | ≈ ±0.03 |
 | Tests | 60 (51 everywhere, 9 need local data) |
 | ADRs | 19 |
