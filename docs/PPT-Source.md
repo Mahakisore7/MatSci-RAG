@@ -335,14 +335,14 @@ corrected the records rather than leaving them. Five cases is evidence, not proo
 | Cross-encoder | 0.952 | 0.849 |
 
 Second chart (judged, 28 questions): Answer Relevancy 0.607 → 0.821; Context Precision 0.582 → 0.689;
-abstentions 11 → 5.
+abstentions 11 → 5. Adding query expansion on top: relevancy 0.821 (unchanged), faithfulness 0.929, 4 of 28 unanswered: no net gain.
 
 **Speaker notes:** "Measured without any LLM judge, so it costs no API budget and can be re-run any
 time. One miss remains: its target paper isn't even in the 20 candidates, so the next try is a larger
 candidate pool. I then confirmed it with the judge on all 28 questions: 'I don't know' answers fell
 from 11 to 5 and relevancy rose from 0.607 to 0.821. It isn't free: faithfulness dipped slightly, to 0.964,
 because one answer quoted a figure that isn't in the retrieved text. I haven't yet judged re-ranking
-combined with query expansion."
+combined with query expansion: it adds nothing, relevancy stays at 0.821 and faithfulness falls to 0.929."
 
 ---
 
@@ -381,7 +381,7 @@ they bound them: the effects I report are large ones, in one domain."
 ## Slide 21 — What is pending
 
 **On slide**
-- Judged run with query expansion **on top of** re-ranking — needs its own day of Groq's daily token budget
+- Decide the query-expansion default: it adds nothing after re-ranking (repeat the run to confirm)
 - Look into the one faithfulness regression (grain-boundary answer)
 - Larger candidate pool; larger cross-encoder
 - Held-out benchmark written by someone else
@@ -444,5 +444,5 @@ Use Guide §15.
 | NER F1 is only 9% — failure? | Slide 8 · Guide §14 |
 | 100% hit-rate suspicious? | Guide §7.2, §14 |
 | Isn't depending on Groq a weakness? | Slide 12 · Guide §14 |
-| Has the re-ranker been proven end to end? | Slide 18 — yes, judged on 28 questions (11 → 5 abstentions); with expansion, pending |
+| Has the re-ranker been proven end to end? | Slide 18 — yes, judged on 28 questions (11 → 5 abstentions). Expansion on top adds nothing (relevancy 0.821 either way) |
 | What did you get wrong? | Slide 17 |

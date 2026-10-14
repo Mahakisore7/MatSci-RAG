@@ -1,6 +1,6 @@
 # ADR-019: Cross-Encoder Re-Ranking After Hybrid Retrieval
 
-**Status:** Accepted (judged run with expansion still pending, see Consequences)
+**Status:** Accepted (default for query expansion under review, see Consequences)
 **Date:** 2026-10-11
 **Phase:** Phase 10
 
@@ -88,6 +88,18 @@ off vs on (`docs/results/bench28/fullpaper_qwen_{,rerank_}exp-off.csv`):
   not stated in the retrieved chunks.
 - Re-ranking is therefore confirmed end to end on this benchmark: abstentions fell from 11 to 5
   and Answer Relevancy rose from 0.607 to 0.821.
-- **Pending:** the same judged run *with query expansion* on top of re-ranking. A judged run uses
-  about 190,000 of Groq's 200,000 daily judge tokens, so it needs its own day (`--resume` is available).
+- **Query expansion on top of re-ranking** was judged on 2026-10-14
+  (`docs/results/bench28/fullpaper_qwen_rerank_exp-on.csv`):
+
+  | | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+  |---|---:|---:|---:|---:|
+  | Re-ranking | 0.964 | 0.821 | 0.689 | 5 / 28 |
+  | Re-ranking + expansion | 0.929 | 0.821 | 0.671 | 4 / 28 |
+
+  Relevancy is identical (4 questions better, 4 worse); one fewer question abstains; faithfulness
+  falls 0.964 → 0.929 (two answers scored 0.0). With re-ranking in place the rewrite is redundant
+  and costs an extra LLM call, so it no longer earns its place.
+- **Open decision:** the app still defaults expansion on (ADR-016). It is one run per configuration,
+  so the default is unchanged until a repeat run confirms the result; turning it off is a one-line
+  change in `src/ui/views/chat.py`.
 - The first query after start-up loads the cross-encoder (a few seconds, one-time).

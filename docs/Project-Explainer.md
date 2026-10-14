@@ -518,7 +518,9 @@ questions instead of 15 (hit@5 0.714 to 0.952), for about +100 ms per query. The
 answering papers" were chosen by me from the titles, so I also ran the judged evaluation: on the
 28-question benchmark, re-ranking cut "I don't know" answers from 11 to 5 and raised Answer
 Relevancy from 0.607 to 0.821. The cost: faithfulness dipped slightly (0.982 to 0.964), because
-answering more questions gave the model more chances to add an unsupported detail.
+answering more questions gave the model more chances to add an unsupported detail. I also judged
+re-ranking together with query expansion: relevancy stayed at 0.821 and faithfulness fell to 0.929, so
+once re-ranking is on, the expansion step no longer earns its extra LLM call.
 
 **Q: Isn't depending on an external API a weakness?**
 It's a deliberate trade-off (ADR-016). Groq runs a model far larger than a laptop GPU can, for
@@ -628,7 +630,7 @@ are real, verified, and already documented in this project (`RESULTS.md`, ADR-00
 | Phase 10 | Full corpus (399/400 full text) · 8-config re-evaluation · REST API · redesigned UI |
 | End-to-end scores (default config) | Faithfulness 0.857 · Answer Relevancy 0.714 · Context Precision 0.543 (was 0.071 relevancy with Flan-T5) |
 | Judge / expansion models | `openai/gpt-oss-120b` / `openai/gpt-oss-20b` via the Groq API — the one non-local piece; expansion degrades gracefully, evaluation fails loudly |
-| Biggest known limitation | 5 of 28 benchmark questions still abstain and one re-ranked answer added an unsupported detail (ADR-019); the re-ranker + query-expansion combination is unmeasured; NER precision (~9% F1) next |
+| Biggest known limitation | 5 of 28 benchmark questions still abstain and one re-ranked answer added an unsupported detail (ADR-019); query expansion, still the app default, adds no relevancy after re-ranking and lowers faithfulness (0.929); NER precision (~9% F1) next |
 
 *For full technical derivations, cite: [`docs/MatSci-RAG-Review.md`](MatSci-RAG-Review.md) (the formal
 review), [`docs/ADRs/ADR-009-ner-aware-retrieval-reranking.md`](ADRs/ADR-009-ner-aware-retrieval-reranking.md)

@@ -564,6 +564,7 @@ author from corpus titles, so this is a judgement, not ground truth.
 |---|---:|---:|---:|---:|
 | Before (no re-ranking) | 0.982 | 0.607 | 0.582 | 11 / 28 |
 | **With re-ranking (default)** | 0.964 | **0.821** | **0.689** | **5 / 28** |
+| Re-ranking + query expansion | 0.929 | **0.821** | 0.671 | 4 / 28 |
 | Original 7 within it: Answer Relevancy | | 0.429 → **0.714** | | 3 → 0 abstentions |
 | New 21 within it: Answer Relevancy | | 0.667 → **0.857** | | 8 → 5 abstentions |
 
@@ -571,6 +572,11 @@ Answer Relevancy improved on 7 questions, worsened on 1, unchanged on 20. Two or
 that had abstained since ADR-016 are now answered. **Cost:** faithfulness dipped (0.982 → 0.964); the
 grain-boundary answer scored 0.0 because it states "1.35 eV", which is not in the retrieved text
 verbatim. Single run per configuration; one question moves Answer Relevancy by 0.036.
+
+**Adding query expansion on top of re-ranking (judged 2026-10-14)** gave no net gain: Answer Relevancy
+is identical (0.821; 4 questions better, 4 worse), one fewer question abstains (5 → 4), but
+faithfulness falls to 0.929 and Context Precision to 0.671. With re-ranking in place the rewrite is
+redundant. The app still defaults expansion on; that default is under review.
 
 ### 7.8 Engineering quality
 
@@ -624,7 +630,7 @@ left to stand.
 | 016 | Groq generator with local fallback; separate verifier | Accepted |
 | 017 | Fuel-cell corpus filter: built, measured, not the default | Accepted (optional) |
 | 018 | 28-question benchmark; corrects the "coverage" explanation | Accepted |
-| 019 | Cross-encoder re-ranking after hybrid retrieval | Accepted (judged run with expansion pending) |
+| 019 | Cross-encoder re-ranking after hybrid retrieval | Accepted (expansion default under review) |
 
 Files: `docs/ADRs/ADR-0NN-*.md`. Each states Context, Decision, Reasoning/Measurement and Consequences.
 When a decision is reversed the old ADR is marked superseded and keeps its measurements; nothing is deleted.
@@ -664,7 +670,7 @@ The recurring theme is **silent failure**: things that looked healthy from outsi
    gold-labelled retrieval targets were chosen by the system's author.
 6. **Re-ranking trades a little faithfulness for coverage.** It answers more questions (5 of 28
    abstain, was 11) but one answer added an unsupported number (faithfulness 0.982 → 0.964).
-   Re-ranking combined with query expansion is not yet measured (see Section 12).
+   Adding query expansion on top lowers faithfulness further (0.929) with no relevancy gain.
 7. **PDF text quality.** `pypdf` carries broken words and equation fragments into chunks.
 8. **Retrieved ≠ answered.** Even with the right paper retrieved, the generator may still decline
    (e.g. the SOFC machine-learning question) because the specific answer isn't in the retrieved chunks.
@@ -677,11 +683,15 @@ The recurring theme is **silent failure**: things that looked healthy from outsi
 **Done since the last revision of this guide:** the judged 28-question run with re-ranking
 (Section 7.7): abstentions 11 → 5, Answer Relevancy 0.607 → 0.821, faithfulness 0.982 → 0.964.
 
-**Blocked only on Groq's daily judge-token budget (200,000/day; a 28-question run uses ~190,000):**
+**Also done:** the judged run with query expansion on top of re-ranking (Section 7.7): no net
+gain, faithfulness 0.964 → 0.929.
 
-- Judged 28-question run **with query expansion on top of re-ranking** (an earlier attempt without
-  re-ranking reached 19/28 and was lost to the cap before resume support existed). Needs its own day:
-  `uv run python scripts/evaluate_ragas.py --benchmark v2 --expand --output docs/results/bench28/fullpaper_qwen_rerank_exp-on.csv --resume`.
+**Open decision:**
+
+- **The query-expansion default.** The app still turns it on (ADR-016), but after re-ranking it adds
+  no measured relevancy and costs faithfulness. It was a single run per configuration, so repeat it
+  (a judged run uses ~190,000 of Groq's 200,000 daily judge tokens, so it needs its own day) before
+  switching the default off in `src/ui/views/chat.py`.
 
 **Engineering follow-ups (not started):**
 
@@ -770,7 +780,7 @@ cases are measured separately in the 28-question benchmark.
 must quote evidence, abstention on ambiguity, and the explicit "I don't know".
 
 **Did the stronger model really fix it?** On the same retrieval and judge, Answer Relevancy rose
-from 0.071 to 0.429 (0.714 with expansion). Only the generator changed.
+from 0.071 to 0.429 (0.714 with expansion, before re-ranking). Only the generator changed.
 
 **Isn't relying on Groq a weakness?** A deliberate trade-off (ADR-016): a far larger model than
 local hardware allows. Mitigated by automatic fallback, a fully offline mode, and keeping
@@ -785,8 +795,8 @@ fixed ranking with a cross-encoder.
 
 **Has the re-ranker been proven end to end?** Yes, on this benchmark. Retrieval hit@5 0.714 →
 0.952 (judge-free); judged on 28 questions, abstentions fell 11 → 5 and Answer Relevancy rose 0.607 →
-0.821. The cost was a small faithfulness dip (0.982 → 0.964). It has not been judged together with
-query expansion yet.
+0.821. The cost was a small faithfulness dip (0.982 → 0.964). Adding query expansion on top gave no
+further relevancy gain (0.821) and lowered faithfulness to 0.929, so the expansion default is under review.
 
 **Why no Docker?** It was built, then dropped because the image was too large for the machine; the
 decision and reason are in ADR-014.

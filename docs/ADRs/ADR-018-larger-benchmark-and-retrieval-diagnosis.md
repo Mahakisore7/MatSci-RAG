@@ -1,6 +1,6 @@
 # ADR-018: A 28-Question Benchmark, and What It Says About the Real Bottleneck
 
-**Status:** Accepted (expansion-on run pending, see Consequences)
+**Status:** Accepted
 **Date:** 2026-10-11
 **Phase:** Phase 10
 **Corrects:** a claim in ADR-016 and ADR-017 that unanswered questions lack an answering paper
@@ -71,8 +71,8 @@ either way.
   the remaining abstentions changed.
 - **Update:** the retrieval-ranking explanation was confirmed by ADR-019, whose re-ranker cut
   abstentions from 11 to 5 on this benchmark.
-- **Pending:** the expansion-on v2 run reached question 19 of 28 before the daily judge cap
-  stopped it, and its partial results were lost (the resume feature did not exist yet). Rerun it
-  with `--resume` once the cap allows. Until then no v2 figure is claimed for expansion.
+- **Resolved:** the first expansion-on v2 run reached question 19 of 28 before the daily judge cap
+  stopped it, and its partial results were lost (the resume feature did not exist yet). The run was
+  repeated with re-ranking on; see ADR-019.
 - v2 is still small and written by the same person who built the system; a held-out set written by
   someone else would be a stronger test.

@@ -516,8 +516,8 @@ Retrieval ranking, not missing papers, is the main limit. This is five cases, no
 and a daily Groq judge cap (200,000 tokens) killed two runs, so it now saves per question and
 supports `--resume`.
 
-**Not yet done:** the expansion-on run of the 28 questions reached 19/28 before the cap and its
-partial results were lost. No 28-question expansion figure is claimed.
+**Update:** the expansion-on run of the 28 questions reached 19/28 before the cap and its partial
+results were lost; it was repeated later with re-ranking on (see the re-ranking section below).
 
 **Decision (ADR-018):** next lever is cross-encoder re-ranking plus a per-paper chunk cap, ahead of
 any corpus fetch.
@@ -572,5 +572,25 @@ Raw data: `docs/results/bench28/fullpaper_qwen_{,rerank_}exp-off.csv`.
   unsupported detail is the likeliest explanation, though formatting differences could contribute.
 - Single run per configuration; one question moves Answer Relevancy by 0.036.
 
-**Still pending:** the same run with query expansion on top of re-ranking. A judged run uses about
-190,000 of Groq's 200,000 daily judge tokens, so it needs its own day.
+### Re-ranking plus query expansion (2026-10-14)
+
+The same judged 28-question run with query expansion switched on as well as re-ranking.
+Raw data: `docs/results/bench28/fullpaper_qwen_rerank_exp-on.csv`.
+
+| | Faithfulness | Answer Relevancy | Context Precision | "I don't know" |
+|---|---:|---:|---:|---:|
+| Before re-ranking | 0.982 | 0.607 | 0.582 | 11 / 28 |
+| Re-ranking | 0.964 | **0.821** | **0.689** | 5 / 28 |
+| Re-ranking + expansion | 0.929 | **0.821** | 0.671 | **4 / 28** |
+
+**Findings**
+- **Expansion adds nothing net once re-ranking is on.** Answer Relevancy is identical (0.821); per
+  question it was better on 4 and worse on 4. One fewer question abstains (5 → 4).
+- **It costs faithfulness:** 0.964 → 0.929. Two answers scored 0.0 (the cathode-activity and
+  double-perovskite questions), one grain-boundary answer recovered from 0.0 to 1.0.
+- Before re-ranking, expansion had been worth +0.285 relevancy on the original 7 questions (0.429 →
+  0.714); re-ranking alone already reaches 0.714 on those, so the rewrite is redundant.
+- Single run per configuration; one question moves Answer Relevancy by 0.036.
+
+**Open decision:** the app still turns expansion on by default (ADR-016). The evidence no longer
+supports that choice, but it is one noisy run, so the default is unchanged until it is repeated.

@@ -431,11 +431,11 @@ Full-text index, `qwen3.8-27b`, no query expansion, same judge ([ADR-018](docs/A
 |---|---:|---:|---:|---:|
 | Before re-ranking | 0.982 | 0.607 | 0.582 | 11 / 28 |
 | **With cross-encoder re-ranking (default)** | 0.964 | **0.821** | **0.689** | **5 / 28** |
+| Re-ranking + query expansion | 0.929 | **0.821** | 0.671 | 4 / 28 |
 
 Answer Relevancy improved on 7 questions, worsened on 1 and was unchanged on 20. The small
 faithfulness dip comes from one answer that quoted a figure not found in the retrieved text. These
-28-question numbers are not comparable with the 7-question table above. Re-ranking combined with
-query expansion has not been judged yet.
+28-question numbers are not comparable with the 7-question table above. Adding query expansion on top of re-ranking changed nothing net: Answer Relevancy stayed at 0.821 (4 questions better, 4 worse), abstentions went 5 → 4, but faithfulness fell to 0.929 and Context Precision to 0.671. Once re-ranking is on, expansion no longer earns its extra LLM call (single run each).
 
 <p align="center">
   <img src="docs/assets/ui-analytics-eval.png" alt="Evaluation results in the Analytics page" width="88%">
@@ -468,8 +468,8 @@ its evidence, so a "supported" badge can be checked by a human in seconds.
 
 **3 · Query expansion's value depends on the generator.** It raises Context Precision on abstracts
 (0.314 → 0.486) but not on full text. With Qwen it still lifts Answer Relevancy (0.429 → 0.714),
-because the rewritten query pulls in passages a capable model can synthesize — so it is now on by
-default in the app.
+because the rewritten query pulls in passages a capable model can synthesize — so it was made the default in the app. After cross-encoder re-ranking that benefit disappears
+(0.821 with or without it, ADR-019), so that default is now in question.
 
 **4 · Silent failures were the biggest engineering risk.** Each of these looked healthy from
 the outside: PDF downloads failed for 100% of papers (wrong `arxiv` API); the retired judge
@@ -531,11 +531,12 @@ timeline
 
 **Next steps**, in order of expected impact:
 
-1. **Judged run with query expansion on top of re-ranking.** Re-ranking is confirmed end to end
-   (ADR-019: abstentions 11 → 5, Answer Relevancy 0.607 → 0.821 on 28 questions); the combination
-   with expansion is not yet measured. A judged run uses most of Groq's 200,000-token daily judge
-   budget, so it needs its own day (`--resume` is supported). Also try a larger candidate pool and a
-   larger cross-encoder, and check the one new unsupported detail in the grain-boundary answer.
+1. **Reconsider the query-expansion default.** Re-ranking is confirmed end to end (ADR-019:
+   abstentions 11 → 5, Answer Relevancy 0.607 → 0.821 on 28 questions), and adding expansion on top
+   gives no net gain (0.821 either way) while faithfulness falls (0.964 → 0.929). The app still turns
+   expansion on by default. It is one run per configuration, so repeat it before changing the default.
+   Also try a larger candidate pool and a larger cross-encoder, and check the unsupported details
+   behind the answers whose faithfulness scored 0.
 2. **Held-out benchmark** — the 28-question set (`--benchmark v2`) was written by the system's
    author; questions from someone else would be a stronger test.
 3. **Better PDF extraction** (layout-aware parsing) — `pypdf` text carries broken words and

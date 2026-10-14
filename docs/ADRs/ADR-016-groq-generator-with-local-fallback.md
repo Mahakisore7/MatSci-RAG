@@ -68,3 +68,8 @@ expansion) are on questions where the retrieved passages don't contain the answe
   quietly get worse when it triggers; the warning in the log is the signal.
 - Groq retires models (ADR-010 update). Because model names are configuration, swapping one is
   an env-var change plus one eval run.
+
+> **Update (ADR-019):** the "expansion on by default" decision above was made before re-ranking.
+> With cross-encoder re-ranking in place, expansion gave no net gain on the 28-question benchmark
+> (Answer Relevancy 0.821 either way) and lowered faithfulness (0.964 to 0.929), so that default is
+> under review. The generator, fallback and verifier decisions stand.

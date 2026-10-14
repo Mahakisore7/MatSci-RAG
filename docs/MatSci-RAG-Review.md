@@ -438,7 +438,8 @@ Reported honestly rather than inflated:
    top 5. A cross-encoder re-ranker (ADR-019) lifted hit@5 from 0.714 to 0.952 on 21 gold-labelled
    questions, and judged end to end on 28 questions it cut abstentions from 11 to 5 and raised
    Answer Relevancy from 0.607 to 0.821 (faithfulness dipped 0.982 → 0.964). The gold labels were
-   written by the system's author, and the combination with query expansion is not yet measured.
+   written by the system's author. Adding query expansion on top gave no net gain (Answer Relevancy 0.821
+   either way, faithfulness 0.929), so the app's expansion-on default is under review.
 7. **A larger benchmark.** Seven questions detect large effects only; the judge varies by about
    ±0.03 between identical retrievals.
 
