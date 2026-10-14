@@ -4,6 +4,12 @@
 from `docs/results/`. Paste a slide's **On slide** text into your deck, add its **Visual**, and use
 the **Speaker notes** as your script.*
 
+> **The published deck is larger than this outline.** The Artifact deck (46 slides, speaker notes on
+> every slide) was built from this file and then extended with: an agenda, base work, the phase
+> journey, the tech stack, an NER tagging example, one question traced end to end, the
+> anti-hallucination layers, the Phase 9 and 10 additions, the decision-record map, and an appendix
+> (live-demo script, two mentor Q&A slides, repository map). The numbers match this file.
+
 **Target length:** about 20 minutes, 22 main slides + 4 backup slides.
 **Audience assumed:** a mentor / faculty panel that knows ML basics but not this project.
 
