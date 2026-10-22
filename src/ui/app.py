@@ -13,8 +13,18 @@ import streamlit as st  # noqa: E402
 # Bridge Streamlit Secrets (Hugging Face Spaces / Streamlit Cloud) into os.environ
 try:
     for key, val in st.secrets.items():
-        if isinstance(val, str) and key not in os.environ:
-            os.environ[key] = val
+        if isinstance(val, str):
+            if key not in os.environ:
+                os.environ[key] = val.strip()
+            if key.upper() not in os.environ:
+                os.environ[key.upper()] = val.strip()
+        elif hasattr(val, "items"):
+            for sub_key, sub_val in val.items():
+                if isinstance(sub_val, str):
+                    if sub_key not in os.environ:
+                        os.environ[sub_key] = sub_val.strip()
+                    if sub_key.upper() not in os.environ:
+                        os.environ[sub_key.upper()] = sub_val.strip()
 except Exception:
     pass
 

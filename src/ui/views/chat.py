@@ -79,14 +79,25 @@ with st.sidebar:
     )
     use_hybrid = strategy != "Dense"
 
-    has_groq = bool(os.environ.get("GROQ_API_KEY"))
+    has_groq = bool(
+        os.environ.get("GROQ_API_KEY")
+        or (
+            hasattr(st, "secrets")
+            and ("GROQ_API_KEY" in st.secrets or "groq_api_key" in st.secrets)
+        )
+    )
+    if has_groq and not os.environ.get("GROQ_API_KEY") and hasattr(st, "secrets"):
+        val = st.secrets.get("GROQ_API_KEY") or st.secrets.get("groq_api_key")
+        if val and isinstance(val, str):
+            os.environ["GROQ_API_KEY"] = val.strip()
+
     use_expansion = st.toggle(
         "Query expansion",
         value=has_groq,
         disabled=not has_groq,
         help="Rewrite the question into a keyword-rich search query with an LLM before "
         "retrieval. The generator still sees your original question."
-        + ("" if has_groq else " Requires GROQ_API_KEY."),
+        + ("" if has_groq else " Requires GROQ_API_KEY in Streamlit Secrets."),
     )
     use_verification = st.toggle(
         "Self-verification",
