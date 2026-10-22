@@ -39,6 +39,9 @@ Each ADR follows this standard structure:
 | [ADR-017](ADR-017-fuel-cell-corpus-filter.md) | Fuel-Cell Corpus Filter — Built, Measured, Not the Default | Accepted (optional) |
 | [ADR-018](ADR-018-larger-benchmark-and-retrieval-diagnosis.md) | A 28-Question Benchmark, and What It Says About the Real Bottleneck | Accepted |
 | [ADR-019](ADR-019-cross-encoder-reranking.md) | Cross-Encoder Re-Ranking After Hybrid Retrieval | Accepted |
+| [ADR-020](ADR-020-hugging-face-spaces-deployment.md) | Deployment to Hugging Face Spaces | Superseded by ADR-021 |
+| [ADR-021](ADR-021-streamlit-community-cloud-deployment.md) | Deployment to Streamlit Community Cloud with Knowledge Base Bootstrapping | Accepted |
+
 
 ## Naming Convention
 

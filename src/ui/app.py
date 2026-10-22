@@ -10,6 +10,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 import streamlit as st  # noqa: E402
 
+# Bridge Streamlit Secrets (Hugging Face Spaces / Streamlit Cloud) into os.environ
+try:
+    for key, val in st.secrets.items():
+        if isinstance(val, str) and key not in os.environ:
+            os.environ[key] = val
+except Exception:
+    pass
+
+from src.core.data_bootstrapper import ensure_data_ready  # noqa: E402
 from src.ui.theme import apply_theme  # noqa: E402
 
 st.set_page_config(
@@ -19,17 +28,36 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 apply_theme()
+ensure_data_ready()
 
-st.logo("docs/assets/logo.svg", size="large")
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+logo_path = os.path.join(ROOT_DIR, "docs", "assets", "logo.svg")
+if os.path.exists(logo_path):
+    st.logo(logo_path, size="large")
 
+
+UI_DIR = os.path.dirname(__file__)
 pages = st.navigation(
     {
         "Research": [
-            st.Page("views/chat.py", title="Assistant", icon=":material/forum:", default=True),
+            st.Page(
+                os.path.join(UI_DIR, "views", "chat.py"),
+                title="Assistant",
+                icon=":material/forum:",
+                default=True,
+            ),
         ],
         "Explore": [
-            st.Page("views/analytics.py", title="Analytics", icon=":material/monitoring:"),
-            st.Page("views/knowledge_graph.py", title="Knowledge Graph", icon=":material/hub:"),
+            st.Page(
+                os.path.join(UI_DIR, "views", "analytics.py"),
+                title="Analytics",
+                icon=":material/monitoring:",
+            ),
+            st.Page(
+                os.path.join(UI_DIR, "views", "knowledge_graph.py"),
+                title="Knowledge Graph",
+                icon=":material/hub:",
+            ),
         ],
     }
 )

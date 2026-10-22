@@ -1,0 +1,37 @@
+# PyTorch CPU index for fast, disk-light cloud deployment (e.g. Hugging Face Spaces)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2.0
+
+# Core RAG, ML, & Vector DB
+transformers>=4.40.0
+sentence-transformers>=3.0.0
+accelerate>=0.28.0
+chromadb>=1.5.9
+rank-bm25>=0.2.2
+
+# LangChain integration
+langchain>=1.3.14
+langchain-chroma>=1.1.0
+langchain-community>=0.4.2
+langchain-groq>=1.1.3
+langchain-huggingface>=1.2.2
+
+# LLM Providers & Ingestion
+groq>=0.37.1
+python-dotenv>=1.0.0
+scikit-learn>=1.4.0
+requests>=2.31.0
+pypdf>=5.0.0
+datasets>=2.18.0
+arxiv>=2.1.0
+seqeval>=1.2.2
+
+# Streamlit UI & Visualizations
+streamlit>=1.40.0
+plotly>=6.0.0
+pyvis>=0.3.2
+networkx>=3.2.0
+
+# API Layer
+fastapi>=0.110.0
+uvicorn>=0.28.0

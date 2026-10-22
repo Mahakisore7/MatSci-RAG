@@ -20,6 +20,8 @@ models/
 data/chroma_db/
 data/faiss_index/
 data/vector_db/
+*.tar.gz
+*.zip
 .pytest_cache/
 .ruff_cache/
 
