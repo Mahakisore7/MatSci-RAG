@@ -12,9 +12,10 @@ with the passages it came from, a self-verification check, and an explicit <i>"I
 <p>
 <a href="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml"><img src="https://github.com/Mahakisore7/MatSci-RAG/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
 <img src="https://img.shields.io/badge/tests-60%20passing-16a34a?style=flat-square&logo=pytest&logoColor=white" alt="60 tests">
-<img src="https://img.shields.io/badge/ADRs-19-6366f1?style=flat-square" alt="19 ADRs">
+<img src="https://img.shields.io/badge/ADRs-21-6366f1?style=flat-square" alt="21 ADRs">
 <img src="https://img.shields.io/badge/python-3.13-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.13">
 <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0"></a>
+
 </p>
 
 <p>
@@ -599,8 +600,11 @@ timeline
 
 ```
 MatSci-RAG/
+├── streamlit_app.py          cloud entrypoint (Streamlit Community Cloud)
+├── app.py                    root entrypoint (local / generic)
+├── requirements.txt          CPU-optimised pip deps (cloud build)
 ├── src/
-│   ├── core/                 config.py (all tunable settings) · logging_config.py
+│   ├── core/                 config.py · logging_config.py · data_bootstrapper.py
 │   ├── ingestion/            fetch_corpus.py · pdf_downloader.py · pdf_parser.py
 │   ├── ner/                  prepare_data.py · train.py · inference.py
 │   ├── rag/
@@ -612,11 +616,15 @@ MatSci-RAG/
 │   │   └── rag_query.py          answer_query() · verify_answer()
 │   ├── api/main.py           FastAPI: POST /query, GET /health
 │   └── ui/                   app.py (router) · theme.py · views/{chat, analytics, knowledge_graph}.py
-├── scripts/                  evaluate_ragas.py · evaluate_rag.py · ingest_full_papers.py
-├── tests/                    60 tests — 51 run everywhere (incl. CI); 9 that need local
-│                             data/models skip cleanly on a fresh checkout
+├── scripts/
+│   ├── evaluate_ragas.py     LLM-judge end-to-end evaluation
+│   ├── evaluate_retrieval.py retrieval-only gold benchmark
+│   ├── bundle_data.py        packages data/ into data_bundle.tar.gz for cloud deployment
+│   └── deploy_to_hf.py       helper to push to Hugging Face Spaces (archived option)
+├── tests/                    60 tests — 51 run everywhere (incl. CI); 9 skip cleanly without data
 ├── docs/
-│   ├── ADRs/                 19 Architecture Decision Records
+│   ├── ADRs/                 21 Architecture Decision Records (ADR-001 → ADR-021)
+│   ├── deployment/           STREAMLIT_CLOUD.md · HUGGINGFACE_SPACES.md
 │   ├── Phases/               step-by-step build guide, Phases 0–8
 │   ├── results/              evaluation CSVs (v2/ = current judge) and logs
 │   ├── Complete-Guide.md     the whole project in one document, all diagrams
@@ -640,12 +648,13 @@ MatSci-RAG/
 | [docs/Complete-Guide.md](docs/Complete-Guide.md) | The whole project in one document: every architecture diagram, all results, the investigation story, limits and what is pending |
 | [docs/PPT-Source.md](docs/PPT-Source.md) | Slide-by-slide source for a presentation: on-slide text, visuals, speaker notes, backup slides |
 | [docs/Project-Explainer.md](docs/Project-Explainer.md) | Glossary of every term, a fully traced example, mentor Q&A |
-| [docs/ADRs/](docs/ADRs/) | 19 decision records — why each technical choice was made |
+| [docs/ADRs/](docs/ADRs/) | 21 decision records — why each technical choice was made |
 | [docs/sample_questions.md](docs/sample_questions.md) | Ready-to-paste demo questions |
+| [docs/deployment/STREAMLIT_CLOUD.md](docs/deployment/STREAMLIT_CLOUD.md) | Step-by-step guide for deploying to Streamlit Community Cloud |
 | [docs/archive/](docs/archive/) | Base paper (Maharana et al., 2025) and the Zeroth Review |
 
 ---
 
 <div align="center">
-<sub>Licensed under [Apache 2.0](LICENSE) · Built with `uv`, tested with `pytest`, checked by GitHub Actions</sub>
+<sub>Licensed under <a href="LICENSE">Apache 2.0</a> · Built with <code>uv</code>, tested with <code>pytest</code>, checked by GitHub Actions</sub>
 </div>
